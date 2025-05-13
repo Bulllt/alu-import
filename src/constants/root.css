@@ -1,0 +1,11 @@
+:root {
+  --primary-color: #393c48;
+  --secondary-color: #5d7b9a;
+  --tertiary-color: #3c3d41;
+  --accent-color: #32cb92;
+  --text-color: #f8f9fa;
+  --background: #161514;
+  --card-shadow: 0 4px 8px rgba(255, 255, 255, 0.1);
+  --card-shadow-hover: 0 8px 16px rgba(255, 255, 255, 0.2);
+  --transition: all 0.3s ease;
+}

@@ -1,0 +1,53 @@
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: var(--primary-color);
+  border-bottom: 1px solid var(--tertiary-color);
+}
+
+.navbarBrand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.navbarLogo {
+  height: 40px;
+  width: auto;
+}
+.navbarAppName {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.navbarNav {
+  display: flex;
+  list-style: none;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+}
+.navbarItem {
+  display: flex;
+}
+.navbarLink {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  text-decoration: none;
+  transition: var(--transition);
+  outline: none;
+}
+.navbarLink:hover {
+  background-color: var(--tertiary-color);
+}
+.navbarLinkActive {
+  background-color: var(--accent-color);
+  color: var(--text-color);
+}
+.navbarIcon {
+  font-size: 1.2rem;
+}

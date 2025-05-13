@@ -1,0 +1,106 @@
+@import url("../../constants/root.css");
+
+.homeContainer {
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  text-align: center;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+.headerIcon {
+  color: var(--accent-color);
+}
+h1 {
+  margin-bottom: 2rem;
+  font-size: 2rem;
+}
+.headerDescription {
+  color: var(--secondary-color);
+  max-width: 500px;
+  margin: 0 auto 2rem;
+}
+
+.folderSelection {
+  margin: 2rem 0;
+}
+.folderSelectionButton {
+  background-color: var(--secondary-color);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+  min-width: 250px;
+}
+.folderSelectionButton:hover {
+  background-color: var(--accent-color);
+}
+.folderSelectionButton:disabled {
+  background-color: var(--tertiary-color);
+  cursor: not-allowed;
+}
+
+.folderInfo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1.5rem;
+  color: var(--text-color);
+}
+.folderInfoIcon {
+  color: var(--accent-color);
+  margin-right: 0.5rem;
+}
+.folderInfoPath span {
+  font-weight: bold;
+  color: var(--accent-color);
+}
+
+.actions {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
+}
+.actionsSave {
+  background-color: var(--primary-color);
+  color: white;
+  border: 2px solid var(--accent-color);
+  padding: 0.8rem 2.5rem;
+  font-size: 1.1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 150px;
+  height: 55px;
+  position: relative;
+}
+.actionsSave:hover {
+  background-color: var(--accent-color);
+}
+.actionsSave:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--tertiary-color);
+}
+.actionsIcon {
+  position: absolute;
+  left: 45%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
