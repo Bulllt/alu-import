@@ -1,55 +1,77 @@
-import React, { useState, useEffect, useContext } from "react";
-import { StatusContext } from "../../context/statusContext.jsx";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { FaFolderOpen, FaCheckCircle, FaSpinner } from "react-icons/fa";
 import "./style.css";
 
-export default function Home() {
-  useEffect(() => {
-    const loadSavedPath = async () => {
-      const savedPath = await window.electronAPI.getFolderPath();
-      if (savedPath) setFolderPath(savedPath);
-    };
-    loadSavedPath();
-  }, []);
-
+export default function SelectFolder() {
+  const navigate = useNavigate();
   const [folderPath, setFolderPath] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  useEffect(() => {
+    let isMounted = true;
+    const abortController = new AbortController();
+
+    const loadSavedPath = async () => {
+      try {
+        const savedPath = await window.electronAPI.getFolderPath();
+        const redirectCount = Number(
+          localStorage.getItem("redirectCount") || "0"
+        );
+
+        if (!isMounted) return;
+
+        if (savedPath) {
+          setFolderPath(savedPath);
+          if (redirectCount === 0) {
+            localStorage.setItem("redirectCount", "1");
+            navigate("/import");
+          }
+        } else {
+          localStorage.setItem("redirectCount", "1");
+        }
+      } catch (error) {
+        if (isMounted) console.error("Error loading saved path:", error);
+      }
+    };
+    loadSavedPath();
+
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
+  }, []);
+
   const handleSelectFolder = async () => {
     setIsLoading(true);
-    try {
-      const result = await window.electronAPI.openFolderDialog();
 
-      if (!result.canceled && result.filePaths.length > 0) {
-        setFolderPath(result.filePaths[0]);
-      }
-    } catch (error) {
-      console.error("Error opening folder dialog:", error);
-    } finally {
+    const result = await window.electronAPI.openFolderDialog();
+
+    if (!result.canceled && result.filePaths.length > 0) {
+      setFolderPath(result.filePaths[0]);
+      setIsLoading(false);
+    } else {
       setIsLoading(false);
     }
   };
 
-  const { showStatusMessage } = useContext(StatusContext);
   const handleSave = async () => {
     if (folderPath) {
       setIsSaving(true);
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      try {
-        await window.electronAPI.saveFolderPath(folderPath);
-        showStatusMessage("success", "Carpeta guardada correctamente");
-      } catch (error) {
-        showStatusMessage("error", "Error al guardar la carpeta");
-      } finally {
+      const response = await window.electronAPI.saveFolderPath(folderPath);
+
+      if (response === true) {
         setIsSaving(false);
+        navigate("/import");
       }
     }
   };
 
   return (
-    <div className="homeContainer">
+    <div className="container">
       <div className="header">
         <FaFolderOpen className="headerIcon" size={48} />
         <h1>Seleccionar carpeta</h1>

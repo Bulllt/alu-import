@@ -1,0 +1,397 @@
+@import url("../../constants/root.css");
+
+.container {
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  background-color: var(--background);
+  color: var(--text-color);
+  min-height: 100vh;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1rem;
+  padding: 2rem;
+  color: var(--text-color);
+}
+.emptyStateIcon {
+  color: var(--accent-color);
+}
+.emptyStateTitle {
+  font-size: 2rem;
+  color: var(--text-color);
+}
+.emptyStateDescription {
+  color: var(--secondary-color);
+  max-width: 500px;
+}
+
+/* Table Styles */
+.table {
+  width: 100%;
+  background-color: var(--primary-color);
+  border-radius: 8px;
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+  margin-top: 1.5rem;
+}
+.tableContent {
+  padding: 1.5rem;
+}
+
+.tableFilter {
+  padding: 1rem 1.5rem;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.featuresWrapper {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.searchGroup {
+  display: flex;
+  flex: 1;
+  min-width: 300px;
+  gap: 0.75rem;
+  position: relative;
+}
+.filterInput {
+  padding: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: rgba(0, 0, 0, 0.3);
+  color: var(--text-color);
+  min-width: 300px;
+  transition: var(--transition);
+  flex: 1;
+}
+.filterInput:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(50, 203, 146, 0.2);
+}
+.clearInputBtn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #aaa;
+  cursor: pointer;
+  padding: 5px;
+  font-size: 0.9rem;
+}
+.clearInputBtn:hover {
+  color: var(--accent-color);
+}
+
+.actionButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--secondary-color);
+  border: none;
+  border-radius: 6px;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.actionButton:hover {
+  background-color: var(--accent-color);
+  color: var(--primary-color);
+}
+.actionButton:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+th,
+td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+th {
+  background-color: rgba(0, 0, 0, 0.2);
+  font-weight: 600;
+  color: var(--accent-color);
+}
+td {
+  color: var(--text-color);
+}
+tr:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Row selection styles */
+.selectColumn {
+  width: 40px;
+  text-align: center !important;
+}
+
+.selectCheckbox {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+.rowSelected {
+  background-color: rgba(50, 203, 146, 0.1) !important;
+}
+
+.rowSelected:hover {
+  background-color: rgba(50, 203, 146, 0.15) !important;
+}
+
+/* Action column */
+.actionColumn {
+  width: 80px;
+}
+
+.rowActions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.rowActionButton {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: var(--transition);
+}
+
+.rowActionButton:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--accent-color);
+}
+
+.selectedCopy {
+  color: var(--accent-color);
+}
+
+/* Table controls */
+.tableControls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background-color: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-color);
+}
+
+.tableInfo {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.selectedInfo {
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+.bulkActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.bulkActionButton {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* Cell editing */
+.dataCell {
+  position: relative;
+}
+
+.editableCell {
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.editableCell:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.cellEditInput,
+.cellEditSelect {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0.5rem;
+  border: 2px solid var(--accent-color);
+  background-color: var(--tertiary-color);
+  color: var(--text-color);
+  z-index: 2;
+}
+
+.cellEditInput:focus,
+.cellEditSelect:focus {
+  outline: none;
+}
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Column header styling */
+.columnHeader {
+  position: relative;
+}
+
+.columnHeaderContent {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.columnHeaderText {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.sortIcon {
+  font-size: 0.75rem;
+}
+
+.sortIcon.ascending {
+  transform: rotate(180deg);
+}
+
+.columnMenuToggle {
+  background: none;
+  border: none;
+  color: var(--accent-color);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.columnMenuToggle:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Column menu */
+.columnMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  width: 280px;
+  background-color: var(--primary-color);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  box-shadow: var(--card-shadow);
+  padding: 1rem;
+}
+
+.columnMenuHeader {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.columnMenuHeader h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--accent-color);
+}
+
+.columnMenuSection {
+  margin-bottom: 1rem;
+}
+
+.columnMenuSection h5 {
+  font-size: 0.9rem;
+  margin: 0 0 0.5rem 0;
+  color: var(--text-color);
+}
+
+.columnMenuButton {
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem;
+  margin: 0.25rem 0;
+  background-color: rgba(0, 0, 0, 0.2);
+  border: none;
+  border-radius: 4px;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.columnMenuButton:hover {
+  background-color: var(--secondary-color);
+}
+
+.columnMenuEmpty {
+  color: var(--secondary-color);
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+  font-style: italic;
+}
+
+/* Boolean icons */
+.booleanCell {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 0.5rem;
+}
+
+.booleanIcon {
+  cursor: pointer;
+  opacity: 0.3;
+  transition: var(--transition);
+  color: var(--text-color);
+  padding: 0.25rem;
+}
+
+.booleanIcon.active {
+  opacity: 1;
+}
+.booleanIcon.active[data-icon="check"] {
+  color: var(--accent-color);
+}
+.booleanIcon.active[data-icon="times"] {
+  color: #ff6b6b;
+}
+.booleanIcon:hover {
+  transform: scale(1.1);
+}

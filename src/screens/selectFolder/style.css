@@ -1,6 +1,6 @@
 @import url("../../constants/root.css");
 
-.homeContainer {
+.container {
   display: flex;
   flex-direction: column;
   padding: 2rem;
