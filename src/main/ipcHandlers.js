@@ -38,6 +38,10 @@ class IPCHandlers {
       "get-processed-files",
       this.handleGetProcessedFiles.bind(this)
     );
+    ipcMain.handle(
+      "delete-processed-files",
+      this.handleDeleteProcessedFiles.bind(this)
+    );
 
     // Cleanup on exit
     ipcMain.on("app-closing", () => {
@@ -95,7 +99,7 @@ class IPCHandlers {
 
   async handleWatchFolder(_, folderPath) {
     try {
-      if (!fs.existsSync(folderPath)) {
+      if (!(await this.handleGetFolderPath())) {
         this.sendStatusToRenderer("error", "La carpeta seleccionada no existe");
         return false;
       }
@@ -155,6 +159,25 @@ class IPCHandlers {
       this.sendStatusToRenderer("error", "No se pudo extraer los archivos");
       console.error("Error getting processed files:", error);
       return [];
+    }
+  }
+
+  async handleDeleteProcessedFiles() {
+    try {
+      const folderPath = await this.handleGetFolderPath();
+
+      const deletedCount = await this.fileManager.deleteProcessedFiles(
+        folderPath
+      );
+      console.log("files deleted:", deletedCount);
+      return true;
+    } catch (error) {
+      this.sendStatusToRenderer(
+        "error",
+        `Error deleting files: ${error.message}`
+      );
+      console.error("Error deleting processed files:", error);
+      return false;
     }
   }
 

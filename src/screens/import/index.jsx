@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useContext } from "react";
+import { StatusContext } from "../../context/statusContext.jsx";
+import ImportConfirmation from "../../components/importConfirmation.jsx";
+import DateCell from "../../components/dateCell.jsx";
+import { Calendar } from "primereact/calendar";
+import { Chips } from "primereact/chips";
+
 import {
   FaWindowClose,
   FaSearch,
@@ -8,6 +14,7 @@ import {
   FaChevronDown,
   FaCopy,
   FaEdit,
+  FaFileImport,
 } from "react-icons/fa";
 import "./style.css";
 
@@ -20,6 +27,8 @@ export default function Import() {
   const [selectAll, setSelectAll] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
   const [openColumnMenu, setOpenColumnMenu] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [filesReadyToImport, setFilesReadyToImport] = useState([]);
 
   const columnMenuRef = useRef(null);
   const editInputRef = useRef(null);
@@ -37,10 +46,8 @@ export default function Import() {
       editable: true,
     },
     { id: "description", header: "Descripción", type: "text", editable: true },
-    { id: "elements", header: "Elementos", type: "text", editable: true },
-    { id: "year", header: "Año", type: "number", editable: true },
-    { id: "month", header: "Mes", type: "number", editable: true },
-    { id: "day", header: "Día", type: "number", editable: true },
+    { id: "elements", header: "Elementos", type: "chips", editable: true },
+    { id: "date", header: "Fecha", type: "date", editable: true },
     { id: "censored", header: "Censurado", type: "boolean", editable: true },
     { id: "published", header: "Publicado", type: "boolean", editable: true },
   ];
@@ -84,9 +91,7 @@ export default function Import() {
           collection_id: "",
           description: "",
           elements: "",
-          year: "",
-          month: "",
-          day: "",
+          date: null,
           censored: false,
           published: false,
           selected: false,
@@ -209,66 +214,148 @@ export default function Import() {
       editingCell.fileId === file.id &&
       editingCell.columnId === columnId
     ) {
-      if (type === "select") {
-        return (
-          <select
-            ref={editInputRef}
-            value={editValue}
-            onChange={handleEditChange}
-            className="cellEditSelect"
-            autoFocus
-          >
-            <option value="">Seleccionar</option>
-            {column.options.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        );
-      } else {
-        return (
-          <input
-            ref={editInputRef}
-            type={type === "number" ? "number" : "text"}
-            value={editValue ?? ""}
-            onChange={handleEditChange}
-            onBlur={handleEditComplete}
-            onKeyDown={handleEditKeyDown}
-            className="cellEditInput"
-          />
-        );
+      switch (column.type) {
+        case "date":
+          return (
+            <DateCell
+              file={file}
+              onChange={(dateData) => {
+                const updatedFiles = files.map((f) =>
+                  f.id === file.id
+                    ? {
+                        ...f,
+                        ...dateData,
+                      }
+                    : f
+                );
+                setFiles(updatedFiles);
+              }}
+              onComplete={() => setEditingCell(null)}
+            />
+          );
+
+        case "chips":
+          return (
+            <Chips
+              value={file.elements ? file.elements.split(",") : []}
+              onChange={(e) => {
+                const updatedFiles = files.map((f) =>
+                  f.id === file.id
+                    ? {
+                        ...f,
+                        elements: e.value.join(","),
+                      }
+                    : f
+                );
+                setFiles(updatedFiles);
+              }}
+              onBlur={() => setEditingCell(null)}
+              separator=","
+              autoFocus
+            />
+          );
+
+        case "select":
+          return (
+            <select
+              ref={editInputRef}
+              value={editValue}
+              onChange={handleEditChange}
+              className="cellEditSelect"
+              autoFocus
+            >
+              <option value="">Seleccionar</option>
+              {column.options.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          );
+
+        default:
+          return (
+            <input
+              ref={editInputRef}
+              type={type === "number" ? "number" : "text"}
+              value={editValue ?? ""}
+              onChange={handleEditChange}
+              onBlur={handleEditComplete}
+              onKeyDown={handleEditKeyDown}
+              className="cellEditInput"
+            />
+          );
       }
     }
-    if (type === "boolean") {
-      return (
-        <div className="booleanCell">
-          <div
-            className={`booleanIcon ${value ? "active" : ""}`}
-            onClick={() => handleCellClick(file.id, columnId, value)}
-            data-icon="check"
-          >
-            <FaCheck />
-          </div>
 
-          <div
-            className={`booleanIcon ${!value ? "active" : ""}`}
-            onClick={() => handleCellClick(file.id, columnId, value)}
-            data-icon="times"
-          >
-            <FaTimes />
+    switch (column.type) {
+      case "date":
+        const { date, datePrecision } = file;
+        let formattedDate;
+
+        if (!date) {
+          return <FaEdit className="inputCellIcon" />;
+        }
+
+        try {
+          const dateObj = new Date(date);
+          switch (datePrecision) {
+            case "year":
+              formattedDate = dateObj.getFullYear();
+              break;
+            case "month":
+              formattedDate = dateObj.toLocaleDateString("es-ES", {
+                month: "long",
+                year: "numeric",
+              });
+              break;
+            case "full":
+            default:
+              formattedDate = dateObj.toLocaleDateString("es-ES", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              });
+          }
+        } catch (e) {
+          formattedDate = "Fecha inválida";
+        }
+
+        return (
+          <div className="visibleCellControl inputCell">
+            <div className="inputCellValue">{formattedDate}</div>
           </div>
-        </div>
-      );
-    }
-    if (type === "select" || type === "text" || type === "number") {
-      return (
-        <div className="visibleCellControl inputCell">
-          <div className="inputCellValue">
-            {value ? value : <FaEdit className="inputCellIcon" />}
+        );
+
+      case "boolean":
+        return (
+          <div className="booleanCell">
+            <div
+              className={`booleanIcon ${value ? "active" : ""}`}
+              onClick={() => handleCellClick(file.id, columnId, value)}
+              data-icon="check"
+            >
+              <FaCheck />
+            </div>
+
+            <div
+              className={`booleanIcon ${!value ? "active" : ""}`}
+              onClick={() => handleCellClick(file.id, columnId, value)}
+              data-icon="times"
+            >
+              <FaTimes />
+            </div>
           </div>
-        </div>
-      );
+        );
+
+      default:
+        return (
+          <div className="visibleCellControl inputCell">
+            <div className="inputCellValue">
+              {value ? value : <FaEdit className="inputCellIcon" />}
+            </div>
+          </div>
+        );
     }
   };
 
@@ -523,8 +610,111 @@ export default function Import() {
   });
   const sortedData = getSortedData();
 
+  // Sending data
+  const validateFilesForImport = (files) => {
+    const mandatoryColumns = [{ id: "collection_id", header: "Colección" }];
+    const errors = [];
+
+    files.forEach((file) => {
+      mandatoryColumns.forEach(({ id, header }) => {
+        if (!file[id] || file[id].toString().trim() === "") {
+          errors.push({
+            fileId: file.id,
+            column: header,
+            message: `Campo vacío en columna ${header}`,
+          });
+        }
+      });
+    });
+
+    return errors;
+  };
+  const transformFileForDatabase = (file) => {
+    let year = null;
+    let month = null;
+    let day = null;
+
+    switch (file.datePrecision) {
+      case "year":
+        year = file.year || null;
+        break;
+
+      case "month":
+        year = file.year || null;
+        month = file.month || null;
+        break;
+
+      case "full":
+        year = file.year || null;
+        month = file.month || null;
+        day = file.day || null;
+        break;
+    }
+
+    return {
+      code: file.name.split("_")[0] || "",
+      n_object: file.name.split("_")[1] || "",
+      n_ic: file.name.split("_")[2] || "",
+      collection_id: file.collection_id,
+      description: file.description,
+      elements: file.elements,
+      year: year,
+      month: month,
+      day: day,
+      censored: file.censored ? 1 : 0,
+      published: file.published ? 1 : 0,
+    };
+  };
+
+  const { showStatusMessage } = useContext(StatusContext);
+  const handleImport = async () => {
+    const validationErrors = validateFilesForImport(files);
+
+    if (validationErrors.length > 0) {
+      const errorFileIds = [...new Set(validationErrors.map((e) => e.fileId))];
+      setFiles((prevFiles) =>
+        prevFiles.map((file) => ({
+          ...file,
+          hasError: errorFileIds.includes(file.id),
+        }))
+      );
+      showStatusMessage(
+        "error",
+        `Error en ${validationErrors[0].fileId}: ${validationErrors[0].message}`
+      );
+      return;
+    }
+
+    setFiles((prevFiles) =>
+      prevFiles.map((file) => ({ ...file, hasError: false }))
+    );
+
+    const importData = files.map(transformFileForDatabase);
+    setFilesReadyToImport(importData);
+    setModalVisible(true);
+  };
+  const handleConfirmImport = async () => {
+    try {
+      setModalVisible(false);
+      showStatusMessage("success", `${files.length} archivos importados`);
+
+      const deletionResult = await window.electronAPI.deleteProcessedFiles();
+      if (deletionResult === true) {
+        setFiles([]);
+      } else {
+        showStatusMessage("error", "No se pudo limpiar la carpeta:");
+      }
+    } catch (error) {
+      showStatusMessage(
+        "error",
+        `Error durante la importación: ${error.message}`
+      );
+      console.error("Import error:", error);
+    }
+  };
+
   return (
-    <div className="container">
+    <div className="importContainer">
       {files.length === 0 ? (
         <div className="emptyState">
           <FaWindowClose size={60} className="emptyStateIcon" />
@@ -565,6 +755,21 @@ export default function Import() {
                     <FaSearch />
                     <span>Buscar</span>
                   </button>
+                  <button
+                    type="button"
+                    className="actionButton"
+                    onClick={handleImport}
+                  >
+                    <FaFileImport />
+                    <span>Importar</span>
+                  </button>
+
+                  <ImportConfirmation
+                    visible={modalVisible}
+                    onHide={() => setModalVisible(false)}
+                    filesToImport={filesReadyToImport}
+                    onConfirm={handleConfirmImport}
+                  />
                 </div>
               </div>
 
@@ -609,7 +814,9 @@ export default function Import() {
                               )}
                             </span>
                             {column.editable &&
-                              !["text", "number"].includes(column.type) && (
+                              !["text", "date", "chips"].includes(
+                                column.type
+                              ) && (
                                 <button
                                   className="columnMenuToggle"
                                   onClick={() =>
@@ -629,9 +836,10 @@ export default function Import() {
                     {sortedData.map((file) => (
                       <tr
                         key={file.id}
-                        className={
-                          selectedRows.includes(file.id) ? "rowSelected" : ""
-                        }
+                        className={`
+                          ${selectedRows.includes(file.id) ? "rowSelected" : ""}
+                          ${file.hasError ? "rowError" : ""}
+                        `}
                       >
                         <td className="selectColumn">
                           <input

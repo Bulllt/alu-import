@@ -1,5 +1,3 @@
-@import url("../../constants/root.css");
-
 .container {
   display: flex;
   flex-direction: column;

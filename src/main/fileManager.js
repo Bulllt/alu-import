@@ -105,6 +105,40 @@ class FileManager {
     }
   }
 
+  async deleteProcessedFiles(basePath) {
+    const processedPath = path.join(basePath, "processedFiles");
+
+    try {
+      const files = await fs.promises.readdir(processedPath);
+      const fileDeletions = files.map(async (file) => {
+        const filePath = path.join(processedPath, file);
+        const stats = await fs.promises.stat(filePath);
+
+        if (stats.isFile()) {
+          await fs.promises.unlink(filePath);
+          return 1;
+        }
+        return 0;
+      });
+
+      const results = await Promise.allSettled(fileDeletions);
+      const deletedCount = results.reduce(
+        (count, result) =>
+          result.status === "fulfilled" ? count + result.value : count,
+        0
+      );
+
+      return deletedCount;
+    } catch (error) {
+      this.sendStatusToRenderer(
+        "error",
+        `Error deleting processed files: ${error.message}`
+      );
+      console.error("Error in deleteProcessedFiles:", error);
+      throw error;
+    }
+  }
+
   async setupSubfolder(basePath) {
     const processedPath = path.join(basePath, "processedFiles");
 

@@ -30,4 +30,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("file-processed", callback);
     return () => ipcRenderer.removeListener("file-processed", callback);
   },
+
+  deleteProcessedFiles: () => ipcRenderer.invoke("delete-processed-files"),
 });

@@ -1,0 +1,145 @@
+.p-dialog-mask {
+  background-color: rgba(
+    0,
+    0,
+    0,
+    0.7
+  ) !important; /* Adjust opacity as needed */
+  backdrop-filter: blur(3px); /* Optional: adds a blur effect */
+}
+.p-dialog .p-dialog-header {
+  background-color: var(--primary-color);
+  color: var(--text-color);
+  padding: 1rem 1.5rem;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+}
+.p-dialog-header .p-dialog-header-icon {
+  display: none;
+}
+.p-dialog .p-dialog-content {
+  padding: 0;
+  background-color: var(--tertiary-color);
+}
+.p-dialog .p-dialog-footer {
+  padding: 1rem 1.5rem;
+  background-color: var(--primary-color);
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+  border-top: 1px solid var(--secondary-color);
+}
+
+/* Modal Container */
+.modalContainer {
+  padding: 1.5rem;
+  color: var(--text-color);
+}
+
+.modalContainer h4 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--accent-color);
+  font-size: 1.1rem;
+}
+
+/* Files Container with Scroll */
+.filesContainer {
+  max-height: 60vh;
+  overflow-y: auto;
+  border: 1px solid var(--secondary-color);
+  border-radius: 4px;
+  background-color: var(--background);
+  padding: 0.5rem;
+}
+
+/* Custom Scrollbar */
+.filesContainer::-webkit-scrollbar {
+  width: 8px;
+}
+
+.filesContainer::-webkit-scrollbar-track {
+  background: var(--tertiary-color);
+  border-radius: 4px;
+}
+
+.filesContainer::-webkit-scrollbar-thumb {
+  background: var(--secondary-color);
+  border-radius: 4px;
+}
+
+.filesContainer::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+}
+
+/* Individual File Item */
+.file {
+  background-color: var(--primary-color);
+  border: 1px solid var(--secondary-color);
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+  padding: 1rem;
+  transition: var(--transition);
+}
+
+.file:last-child {
+  margin-bottom: 0;
+}
+
+.file:hover {
+  transform: translateY(-2px);
+}
+
+/* File Name */
+.fileName {
+  font-weight: bold;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  color: var(--accent-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* File Details */
+.fileDetails {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem;
+  color: var(--text-color);
+  font-size: 0.9rem;
+}
+
+/* Footer Buttons Container */
+.buttonsContainer {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* Back Button */
+.button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--secondary-color);
+  border: none;
+  border-radius: 6px;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.button:hover {
+  background-color: var(--accent-color) !important;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+  .p-dialog {
+    width: 90vw !important;
+  }
+
+  .fileDetails {
+    grid-template-columns: 1fr;
+  }
+}
