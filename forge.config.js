@@ -38,10 +38,10 @@ module.exports = {
           entryPoints: [
             {
               html: "./src/app/index.html",
-              js: "./src/renderer.js",
+              js: "./src/_backend/renderer.js",
               name: "main_window",
               preload: {
-                js: "./src/preload.js",
+                js: "./src/_backend/preload.js",
               },
             },
           ],
