@@ -5,15 +5,19 @@ const fs = require("fs");
 
 class IPCHandlers {
   constructor() {
-    this.fileManager = new FileManager(this.sendStatusToRenderer.bind(this));
     this.configPath = path.join(
       require("electron").app.getPath("userData"),
       "config.json"
+    );
+    this.fileManager = new FileManager(
+      this.sendStatusToRenderer.bind(this),
+      this.configPath
     );
   }
 
   init(mainWindow) {
     this.mainWindow = mainWindow;
+    this.fileManager.mainWindow = mainWindow;
     this.setupHandlers();
   }
 
@@ -32,20 +36,18 @@ class IPCHandlers {
     ipcMain.handle("save-folder-path", this.handleSaveFolderPath.bind(this));
     ipcMain.handle("get-folder-path", this.handleGetFolderPath.bind(this));
 
-    // File operations
-    ipcMain.handle("watch-folder", this.handleWatchFolder.bind(this));
+    // Collection operations
+    ipcMain.handle("scan-collections", this.handleScanCollections.bind(this));
     ipcMain.handle(
-      "get-processed-files",
-      this.handleGetProcessedFiles.bind(this)
+      "start-collection-processing",
+      this.handleStartCollectionProcessing.bind(this)
     );
-    ipcMain.handle(
-      "delete-processed-files",
-      this.handleDeleteProcessedFiles.bind(this)
-    );
+    ipcMain.handle("execute-rollback", this.handleExecuteRollback.bind(this));
 
     // Cleanup on exit
-    ipcMain.on("app-closing", () => {
+    ipcMain.on("close-app", () => {
       this.fileManager.cleanup();
+      app.quit();
     });
   }
 
@@ -97,86 +99,43 @@ class IPCHandlers {
     }
   }
 
-  async handleWatchFolder(_, folderPath) {
+  async handleScanCollections(_, folderPath) {
     try {
-      if (!(await this.handleGetFolderPath())) {
-        this.sendStatusToRenderer("error", "La carpeta seleccionada no existe");
-        return false;
-      }
-
-      const processedPath = await this.fileManager.setupSubfolder(folderPath);
-
-      this.fileManager.createWatcher(folderPath, {
-        onAdd: async (filePath) => {
-          try {
-            const result = await this.fileManager.processNewFile(
-              filePath,
-              processedPath
-            );
-            this.mainWindow.webContents.send("file-processed", result);
-            this.sendStatusToRenderer(
-              "success",
-              `Archivo procesado: ${path.basename(filePath)}`
-            );
-          } catch (error) {
-            this.sendStatusToRenderer(
-              "error",
-              `Error al procesar el archivo: ${path.basename(filePath)}`
-            );
-            this.mainWindow.webContents.send("file-error", {
-              file: path.basename(filePath),
-              error: error.message,
-            });
-          }
-        },
-      });
-      return true;
+      await this.fileManager.createWatcher(folderPath);
+      return this.fileManager.pendingCollections;
     } catch (error) {
       this.sendStatusToRenderer(
         "error",
-        "Error al configurar el monitoreo de la carpeta"
+        `Error escaneando colecciones: ${error.message}`
       );
-      console.error("Error setting up folder watcher:", error);
-      return false;
-    }
-  }
-
-  async handleGetProcessedFiles(_, folderPath) {
-    try {
-      const processedPath = path.join(folderPath, "processedFiles");
-      const fileNames = await fs.promises.readdir(processedPath);
-
-      return fileNames
-        .filter(
-          (file) => !fs.lstatSync(path.join(processedPath, file)).isDirectory()
-        )
-        .map((fileName) => ({
-          id: fileName.split(".")[0],
-          name: fileName,
-          path: path.join(processedPath, fileName),
-        }));
-    } catch (error) {
-      this.sendStatusToRenderer("error", "No se pudo extraer los archivos");
-      console.error("Error getting processed files:", error);
       return [];
     }
   }
 
-  async handleDeleteProcessedFiles() {
+  async handleStartCollectionProcessing(_, collectionPath) {
     try {
-      const folderPath = await this.handleGetFolderPath();
-
-      const deletedCount = await this.fileManager.deleteProcessedFiles(
-        folderPath
+      const success = await this.fileManager.startCollectionProcessing(
+        collectionPath
       );
-      console.log("files deleted:", deletedCount);
+
+      if (!success) {
+        this.sendStatusToRenderer("error", "Error al comenzar el proceso");
+        throw new Error("Failed to start collection processing");
+      }
+
       return true;
     } catch (error) {
-      this.sendStatusToRenderer(
-        "error",
-        `Error deleting files: ${error.message}`
-      );
-      console.error("Error deleting processed files:", error);
+      this.sendStatusToRenderer("error", "Error al comenzar el proceso");
+      return false;
+    }
+  }
+
+  async handleExecuteRollback(_, collectionPath) {
+    try {
+      await this.fileManager.executeRollback(collectionPath);
+      return true;
+    } catch (error) {
+      console.error("Rollback failed:", error);
       return false;
     }
   }

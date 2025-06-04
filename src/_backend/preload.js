@@ -6,30 +6,29 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeAllListeners("status-message");
   },
 
+  // Folder selection APIs
   openFolderDialog: () => ipcRenderer.invoke("open-folder-dialog"),
   saveFolderPath: (path) => ipcRenderer.invoke("save-folder-path", path),
   getFolderPath: () => ipcRenderer.invoke("get-folder-path"),
 
-  watchFolder: (path) => ipcRenderer.invoke("watch-folder", path),
+  // Collection APIs
+  scanCollections: (folderPath) =>
+    ipcRenderer.invoke("scan-collections", folderPath),
+  startCollectionProcessing: (collectionPath) =>
+    ipcRenderer.invoke("start-collection-processing", collectionPath),
+  executeRollback: (collectionPath) =>
+    ipcRenderer.invoke("execute-rollback", collectionPath),
 
+  // File APIs
   onFileProcessed: (callback) => {
-    ipcRenderer.on("file-processed", (_, data) => callback(data));
-    return () => ipcRenderer.removeAllListeners("file-processed");
+    const wrappedCallback = (event, data) => {
+      const files = Array.isArray(data) ? data : [data];
+      callback(event, files.filter(Boolean));
+    };
+    ipcRenderer.on("file-processed", wrappedCallback);
+    return () => ipcRenderer.removeListener("file-processed", wrappedCallback);
   },
   offFileProcessed: (callback) => {
     ipcRenderer.removeListener("file-processed", callback);
   },
-  onFileError: (callback) => {
-    ipcRenderer.on("file-error", (_, data) => callback(data));
-    return () => ipcRenderer.removeAllListeners("file-error");
-  },
-
-  getProcessedFiles: (folderPath) =>
-    ipcRenderer.invoke("get-processed-files", folderPath),
-  onFileProcessed: (callback) => {
-    ipcRenderer.on("file-processed", callback);
-    return () => ipcRenderer.removeListener("file-processed", callback);
-  },
-
-  deleteProcessedFiles: () => ipcRenderer.invoke("delete-processed-files"),
 });

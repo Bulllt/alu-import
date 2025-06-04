@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
+import { useLocation } from "react-router-dom";
 import { StatusContext } from "../../context/statusContext.jsx";
 import ImportConfirmation from "../../components/importConfirmation.jsx";
 import DateCell from "../../components/dateCell.jsx";
-import { Calendar } from "primereact/calendar";
 import { Chips } from "primereact/chips";
 
 import {
@@ -15,10 +15,12 @@ import {
   FaCopy,
   FaEdit,
   FaFileImport,
+  FaSpinner,
 } from "react-icons/fa";
 import "./style.css";
 
 export default function Import() {
+  const location = useLocation();
   const [files, setFiles] = useState([]);
   const [editingCell, setEditingCell] = useState(null);
   const [editValue, setEditValue] = useState("");
@@ -29,11 +31,11 @@ export default function Import() {
   const [openColumnMenu, setOpenColumnMenu] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [filesReadyToImport, setFilesReadyToImport] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const hasStartedRef = useRef(false);
 
   const columnMenuRef = useRef(null);
   const editInputRef = useRef(null);
-
-  const collections = ["Colección A", "Colección B", "Colección C"]; // Example collection options
 
   // Column configuration
   const columns = [
@@ -41,9 +43,8 @@ export default function Import() {
     {
       id: "collection_id",
       header: "Colección",
-      type: "select",
-      options: collections,
-      editable: true,
+      type: "text",
+      editable: false,
     },
     { id: "description", header: "Descripción", type: "text", editable: true },
     { id: "elements", header: "Elementos", type: "chips", editable: true },
@@ -52,71 +53,75 @@ export default function Import() {
     { id: "published", header: "Publicado", type: "boolean", editable: true },
   ];
 
-  // Track folder and fetch files
-  const loadProcessedFiles = async (folderPath) => {
-    try {
-      const processedFiles = await window.electronAPI.getProcessedFiles(
-        folderPath
-      );
-      setFiles(processedFiles);
-    } catch (error) {
-      console.error("Error loading processed files:", error);
-    }
-  };
+  // Fetch files
   useEffect(() => {
+    const hasStarted = hasStartedRef.current;
+    hasStartedRef.current = true;
     let isMounted = true;
-    const abortController = new AbortController();
+    setIsLoading(true);
+    let initialFilesReceived = false;
 
-    const initialize = async () => {
-      try {
-        const folderPath = await window.electronAPI.getFolderPath();
-        if (isMounted && folderPath) {
-          await window.electronAPI.watchFolder(folderPath);
-          await loadProcessedFiles(folderPath);
+    if (!hasStarted) {
+      const processFiles = async () => {
+        try {
+          await window.electronAPI.startCollectionProcessing(
+            location.state?.collectionPath
+          );
+        } catch (error) {
+          console.error("Processing error:", error);
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error("Failed to initialize watcher:", error);
-      }
-    };
-    initialize();
+      };
+      processFiles();
+    }
 
     const onFileProcessed = (event, data) => {
       if (!isMounted) return;
 
-      setFiles((prevFiles) => [
-        ...prevFiles,
-        {
-          id: data.renamed,
-          name: data.renamed,
-          collection_id: "",
+      setFiles((prevFiles) => {
+        const processFile = (file) => ({
+          id: file.inventoryCode,
+          name: file.newName,
+          path: file.path,
+          collection_id: location.state?.dbCollectionId || "",
           description: "",
-          elements: "",
+          elements: [],
           date: null,
           censored: false,
           published: false,
-          selected: false,
-        },
-      ]);
-    };
-    window.electronAPI.onFileProcessed(onFileProcessed);
+        });
 
-    const handleClickOutside = (event) => {
-      if (
-        columnMenuRef.current &&
-        !columnMenuRef.current.contains(event.target)
-      ) {
-        setOpenColumnMenu(null);
-      }
+        const newFiles = Array.isArray(data)
+          ? data.map(processFile)
+          : [processFile(data)];
+
+        const existingIds = new Set(prevFiles.map((f) => f.id));
+        const uniqueNewFiles = newFiles.filter((f) => !existingIds.has(f.id));
+
+        if (!initialFilesReceived && isMounted) {
+          initialFilesReceived = true;
+          setIsLoading(false);
+        }
+
+        return [...prevFiles, ...uniqueNewFiles];
+      });
+
+      setIsLoading(false);
     };
-    document.addEventListener("mousedown", handleClickOutside);
+
+    const cleanup = window.electronAPI.onFileProcessed(onFileProcessed);
 
     return () => {
       isMounted = false;
-      abortController.abort();
-      window.electronAPI.offFileProcessed(onFileProcessed);
-      document.removeEventListener("mousedown", handleClickOutside);
+      cleanup();
+
+      window.electronAPI
+        .executeRollback(location.state?.collectionPath)
+        .catch((error) => {
+          console.error("Rollback error:", error);
+        });
     };
-  }, []);
+  }, [location.state?.collectionPath, location.state?.dbCollectionId]);
 
   // Handle edit cell
   const handleCellClick = (fileId, columnId, value) => {
@@ -715,7 +720,11 @@ export default function Import() {
 
   return (
     <div className="importContainer">
-      {files.length === 0 ? (
+      {isLoading ? (
+        <div className="loaderContainer">
+          <FaSpinner className="loaderIcon" size={100} />
+        </div>
+      ) : files.length === 0 ? (
         <div className="emptyState">
           <FaWindowClose size={60} className="emptyStateIcon" />
           <h1 className="emptyStateTitle">No hay archivos para importar</h1>

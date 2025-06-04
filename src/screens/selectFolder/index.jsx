@@ -12,7 +12,6 @@ export default function SelectFolder() {
 
   useEffect(() => {
     let isMounted = true;
-    const abortController = new AbortController();
 
     const loadSavedPath = async () => {
       try {
@@ -25,11 +24,14 @@ export default function SelectFolder() {
 
         if (savedPath) {
           setFolderPath(savedPath);
+          localStorage.setItem("folderPath", true);
           if (redirectCount === 0) {
             localStorage.setItem("redirectCount", "1");
-            navigate("/import");
+            await window.electronAPI.scanCollections(savedPath);
+            navigate("/selectCollection");
           }
         } else {
+          localStorage.removeItem("folderPath");
           localStorage.setItem("redirectCount", "1");
         }
       } catch (error) {
@@ -40,7 +42,6 @@ export default function SelectFolder() {
 
     return () => {
       isMounted = false;
-      abortController.abort();
     };
   }, []);
 
@@ -64,8 +65,9 @@ export default function SelectFolder() {
       const response = await window.electronAPI.saveFolderPath(folderPath);
 
       if (response === true) {
+        localStorage.setItem("folderPath", true);
         setIsSaving(false);
-        navigate("/import");
+        navigate("/selectCollection");
       }
     }
   };
@@ -76,8 +78,8 @@ export default function SelectFolder() {
         <FaFolderOpen className="headerIcon" size={48} />
         <h1>Seleccionar carpeta</h1>
         <p className="headerDescription">
-          Seleccionar la carpeta que contiene los archivos que deseas importar
-          al sistema
+          Seleccionar la carpeta que contiene las colecciones que deseas
+          importar al sistema
         </p>
       </div>
 

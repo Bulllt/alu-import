@@ -9,6 +9,7 @@ import { StatusProvider } from "../context/statusContext.jsx";
 import MainStatusListener from "../components/mainStatusListener.jsx";
 
 import SelectFolder from "../screens/selectFolder/index.jsx";
+import SelectCollection from "../screens/selectCollection/index.jsx";
 import Import from "../screens/import/index.jsx";
 
 export default function App() {
@@ -78,6 +79,7 @@ export default function App() {
           <Routes>
             <Route element={<Layout />}>
               <Route path="/" element={<SelectFolder />} />
+              <Route path="/selectCollection" element={<SelectCollection />} />
               <Route path="/import" element={<Import />} />
             </Route>
           </Routes>

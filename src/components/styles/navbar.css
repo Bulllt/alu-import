@@ -54,3 +54,12 @@
 .navbarIcon {
   font-size: 1.2rem;
 }
+
+.navbarLinkDisabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.navbarLinkDisabled:hover {
+  background-color: transparent;
+  border: 2px solid transparent;
+}

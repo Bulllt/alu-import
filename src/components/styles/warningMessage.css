@@ -1,0 +1,36 @@
+.warningContainer {
+  padding: 1rem;
+  text-align: center;
+}
+
+.warningIcon {
+  color: var(--accent-color);
+  margin-bottom: 1rem;
+}
+
+.warningDescription {
+  color: var(--text-color);
+  font-size: 1.5rem;
+}
+
+.warningFooter {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.warningButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--secondary-color);
+  border: none;
+  border-radius: 6px;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.warningButton:hover {
+  background-color: var(--accent-color) !important;
+}
