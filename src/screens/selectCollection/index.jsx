@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { AutoComplete } from "primereact/autocomplete";
@@ -13,11 +13,14 @@ export default function SelectCollection() {
   const [selectedCollectionID, setSelectedCollectionID] = useState("");
   const [filteredCollectionsID, setFilteredCollectionsID] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const hasStarted = useRef(false);
 
   // Example collection options - replace with actual API call later
   const dbCollections = ["Colección A", "Colección B", "Colección C"];
 
   const loadCollections = async () => {
+    if (hasStarted.current) return;
+    hasStarted.current = true;
     setIsLoading(true);
     try {
       const folderPath = await window.electronAPI.getFolderPath();

@@ -147,7 +147,7 @@ td {
   padding: 1rem;
   text-align: left;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  width: 200px;
+  width: 200px !important;
 }
 th {
   background-color: rgba(0, 0, 0, 0.2);
@@ -156,6 +156,7 @@ th {
 }
 td {
   color: var(--text-color);
+  font-size: 1rem;
 }
 tr:hover {
   background-color: rgba(255, 255, 255, 0.03);
@@ -312,6 +313,7 @@ tr:hover {
 .cellEditInput,
 .cellEditSelect {
   position: absolute;
+  font-size: 1rem;
   top: 0;
   left: 0;
   width: 100%;
@@ -491,7 +493,7 @@ input::-webkit-inner-spin-button {
 .p-chips .p-chips-token {
   background: var(--secondary-color);
   color: var(--text-color);
-  border-radius: 6px;
+  border-radius: 16px;
   padding: 0.25rem 0.5rem;
   margin-right: 0.5rem;
   margin-bottom: 0.5rem;
@@ -505,11 +507,31 @@ input::-webkit-inner-spin-button {
   background: transparent;
   color: var(--text-color);
   padding: 0.5rem;
+  font-size: 1rem;
 }
 
-/* Dropdown Panel */
-.p-chips .p-chips-multiple-container {
-  padding: 0.25rem 0.5rem;
-  background: transparent;
-  border: none;
+/* Chips Preview */
+.chips-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+.chip-item {
+  background: var(--accent-color);
+  padding: 0.25rem 1.5rem 0.25rem 0.75rem;
+  border-radius: 16px;
+  font-size: 1rem;
+  position: relative;
+}
+.remove-chip {
+  cursor: pointer;
+  font-size: 0.8rem;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.remove-chip:hover {
+  color: var(--secondary-color);
 }

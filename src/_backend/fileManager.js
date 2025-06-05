@@ -104,6 +104,10 @@ class FileManager {
         ignored: /(^|[\/\\])\../,
         persistent: true,
         ignoreInitial: true,
+        awaitWriteFinish: {
+          stabilityThreshold: 1000,
+          pollInterval: 100,
+        },
       });
 
       watcher
@@ -126,7 +130,10 @@ class FileManager {
       this.watchers.set(collectionPath, watcher);
       return true;
     } catch (error) {
-      this.sendStatusToRenderer("error", `Error al procesar ${error.message}`);
+      this.sendStatusToRenderer(
+        "error",
+        "Error al procesar (startCollectionProcessing)"
+      );
       return false;
     }
   }
@@ -158,7 +165,10 @@ class FileManager {
 
       return processedItems;
     } catch (error) {
-      this.sendStatusToRenderer("error", `Error al procesar: ${error.message}`);
+      this.sendStatusToRenderer(
+        "error",
+        "Error al procesar (processCollection)"
+      );
       throw error;
     }
   }
@@ -200,10 +210,7 @@ class FileManager {
       };
     } catch (error) {
       this.lastInventoryNumber--;
-      this.sendStatusToRenderer(
-        "error",
-        `Error al procesar ${fileName}: ${error.message}`
-      );
+      this.sendStatusToRenderer("error", "Error al procesar (processFile)");
       return null;
     }
   }
@@ -230,7 +237,7 @@ class FileManager {
     });
 
     try {
-      await fs.promises.rename(folderPath, newFolderPath);
+      await this.retryFolderRename(folderPath, newFolderPath);
       const files = await fs.promises.readdir(newFolderPath);
       const processedFiles = [];
 
@@ -267,11 +274,19 @@ class FileManager {
       return processedFiles;
     } catch (error) {
       this.lastInventoryNumber--;
-      this.sendStatusToRenderer(
-        "error",
-        `Error al procesar ${folderName}: ${error.message}`
-      );
+      this.sendStatusToRenderer("error", "Error al procesar (processFolder)");
       return null;
+    }
+  }
+  async retryFolderRename(oldPath, newPath, attempts = 3, delay = 300) {
+    for (let i = 0; i < attempts; i++) {
+      try {
+        await fs.promises.rename(oldPath, newPath);
+        return;
+      } catch (error) {
+        if (i === attempts - 1) throw error;
+        await new Promise((resolve) => setTimeout(resolve, delay * (i + 1)));
+      }
     }
   }
 

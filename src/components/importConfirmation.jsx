@@ -85,7 +85,9 @@ export default function ImportConfirmation({
         <div className="filesContainer">
           {filesToImport.map((file, index) => (
             <div key={index} className="file">
-              <div className="fileName">{file.code}</div>
+              <div className="fileName">
+                {file.code}_{file.n_object}_{file.n_ic}
+              </div>
               <div className="fileDetails">
                 <span>Colección: {file.collection_id}</span>
                 <span>Fecha: {formatDate(file)}</span>

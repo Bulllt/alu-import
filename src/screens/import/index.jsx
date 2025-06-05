@@ -37,6 +37,7 @@ export default function Import() {
   const columnMenuRef = useRef(null);
   const editInputRef = useRef(null);
 
+  const ubication = ["hola", 1, 2];
   // Column configuration
   const columns = [
     { id: "name", header: "Inventario", type: "text", editable: false },
@@ -49,6 +50,13 @@ export default function Import() {
     { id: "description", header: "Descripción", type: "text", editable: true },
     { id: "elements", header: "Elementos", type: "chips", editable: true },
     { id: "date", header: "Fecha", type: "date", editable: true },
+    {
+      id: "ubicacion_id",
+      header: "Ubicacion objeto",
+      type: "select",
+      options: ubication,
+      editable: true,
+    },
     { id: "censored", header: "Censurado", type: "boolean", editable: true },
     { id: "published", header: "Publicado", type: "boolean", editable: true },
   ];
@@ -59,10 +67,9 @@ export default function Import() {
     hasStartedRef.current = true;
     let isMounted = true;
     setIsLoading(true);
-    let initialFilesReceived = false;
 
     if (!hasStarted) {
-      const processFiles = async () => {
+      const initialFiles = async () => {
         try {
           await window.electronAPI.startCollectionProcessing(
             location.state?.collectionPath
@@ -72,7 +79,7 @@ export default function Import() {
           setIsLoading(false);
         }
       };
-      processFiles();
+      initialFiles();
     }
 
     const onFileProcessed = (event, data) => {
@@ -97,12 +104,6 @@ export default function Import() {
 
         const existingIds = new Set(prevFiles.map((f) => f.id));
         const uniqueNewFiles = newFiles.filter((f) => !existingIds.has(f.id));
-
-        if (!initialFilesReceived && isMounted) {
-          initialFilesReceived = true;
-          setIsLoading(false);
-        }
-
         return [...prevFiles, ...uniqueNewFiles];
       });
 
@@ -110,6 +111,10 @@ export default function Import() {
     };
 
     const cleanup = window.electronAPI.onFileProcessed(onFileProcessed);
+
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 1500);
 
     return () => {
       isMounted = false;
@@ -242,7 +247,13 @@ export default function Import() {
         case "chips":
           return (
             <Chips
-              value={file.elements ? file.elements.split(",") : []}
+              value={
+                Array.isArray(file.elements)
+                  ? file.elements
+                  : typeof file.elements === "string"
+                  ? file.elements.split(",")
+                  : []
+              }
               onChange={(e) => {
                 const updatedFiles = files.map((f) =>
                   f.id === file.id
@@ -256,6 +267,7 @@ export default function Import() {
               }}
               onBlur={() => setEditingCell(null)}
               separator=","
+              removable
               autoFocus
             />
           );
@@ -329,6 +341,50 @@ export default function Import() {
         return (
           <div className="visibleCellControl inputCell">
             <div className="inputCellValue">{formattedDate}</div>
+          </div>
+        );
+
+      case "chips":
+        const chipValues = Array.isArray(file.elements)
+          ? file.elements
+          : typeof file.elements === "string"
+          ? file.elements.split(",").filter(Boolean)
+          : [];
+
+        if (chipValues.length === 0) {
+          return (
+            <div className="visibleCellControl inputCell">
+              <div className="inputCellValue">
+                <FaEdit className="inputCellIcon" />
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="visibleCellControl inputCell">
+            <div className="inputCellValue chips-preview">
+              {chipValues.map((chip, index) => (
+                <div key={index} className="chip-item">
+                  {chip}
+                  <span
+                    className="remove-chip"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const updated = chipValues.filter((_, i) => i !== index);
+                      const updatedFiles = files.map((f) =>
+                        f.id === file.id
+                          ? { ...f, elements: updated.join(",") }
+                          : f
+                      );
+                      setFiles(updatedFiles);
+                    }}
+                  >
+                    <FaTimes />
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         );
 
@@ -544,11 +600,19 @@ export default function Import() {
 
     const updatedFiles = files.map((file) => {
       if (file.id !== sourceRowId) {
-        // Copy all editable fields
         const newFile = { ...file };
+
         columns.forEach((column) => {
           if (column.editable) {
-            newFile[column.id] = sourceRow[column.id];
+            if (column.type === "date") {
+              newFile.datePrecision = sourceRow.datePrecision;
+              newFile.date = sourceRow.date;
+              newFile.year = sourceRow.year;
+              newFile.month = sourceRow.month;
+              newFile.day = sourceRow.day;
+            } else {
+              newFile[column.id] = sourceRow[column.id];
+            }
           }
         });
         return newFile;
@@ -560,18 +624,24 @@ export default function Import() {
   };
 
   const copyRowToSelected = (sourceRowId) => {
-    if (selectedRows.length === 0) return;
-
     const sourceRow = files.find((file) => file.id === sourceRowId);
-    if (!sourceRow) return;
+    if (!sourceRow || selectedRows.length === 0) return;
 
     const updatedFiles = files.map((file) => {
       if (file.id !== sourceRowId && selectedRows.includes(file.id)) {
-        // Copy all editable fields
         const newFile = { ...file };
+
         columns.forEach((column) => {
           if (column.editable) {
-            newFile[column.id] = sourceRow[column.id];
+            if (column.type === "date") {
+              newFile.datePrecision = sourceRow.datePrecision;
+              newFile.date = sourceRow.date;
+              newFile.year = sourceRow.year;
+              newFile.month = sourceRow.month;
+              newFile.day = sourceRow.day;
+            } else {
+              newFile[column.id] = sourceRow[column.id];
+            }
           }
         });
         return newFile;
@@ -656,19 +726,46 @@ export default function Import() {
         break;
     }
 
-    return {
-      code: file.name.split("_")[0] || "",
-      n_object: file.name.split("_")[1] || "",
-      n_ic: file.name.split("_")[2] || "",
+    const now = new Date();
+    const nowYear = now.getFullYear();
+    const nowMonth = String(now.getMonth() + 1).padStart(2, "0");
+    const nowDay = String(now.getDate()).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const seconds = String(now.getSeconds()).padStart(2, "0");
+
+    const columnsToSend = {
+      code: file.id.split("_")[0] || "",
+      n_object: file.id.split("_")[1] || "",
+      n_ic: file.id.split("_")[2] || "",
       collection_id: file.collection_id,
-      description: file.description,
-      elements: file.elements,
+      container_annotations: null,
+      object_annotations: null,
+      title: null,
+      description: file.description || null,
+      history: null,
+      information: null,
+      peoples: null,
+      elements: file.elements || null,
       year: year,
       month: month,
       day: day,
       censored: file.censored ? 1 : 0,
+      censored_reason: null,
       published: file.published ? 1 : 0,
+      ai_description: null,
+      ubicacion_id: null,
+      techniques_id: null,
+      sizes_id: null,
+      communes_id: null,
+      types_id: null,
+      locations_id: null,
+      ubications_id: null,
+      created_at: `${nowYear}-${nowMonth}-${nowDay} ${hours}:${minutes}:${seconds}`,
+      updated_at: `${nowYear}-${nowMonth}-${nowDay} ${hours}:${minutes}:${seconds}`,
     };
+
+    return columnsToSend;
   };
 
   const { showStatusMessage } = useContext(StatusContext);
