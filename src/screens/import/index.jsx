@@ -4,6 +4,8 @@ import { StatusContext } from "../../context/statusContext.jsx";
 import ImportConfirmation from "../../components/importConfirmation.jsx";
 import DateCell from "../../components/dateCell.jsx";
 import { Chips } from "primereact/chips";
+import { AutoComplete } from "primereact/autocomplete";
+import TableScrollbar from "../../components/tableScrollbar.jsx";
 
 import {
   FaWindowClose,
@@ -23,7 +25,7 @@ export default function Import() {
   const location = useLocation();
   const [files, setFiles] = useState([]);
   const [editingCell, setEditingCell] = useState(null);
-  const [editValue, setEditValue] = useState("");
+  const [editValues, setEditValues] = useState({});
   const [filterText, setFilterText] = useState("");
   const [selectedRows, setSelectedRows] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -32,12 +34,25 @@ export default function Import() {
   const [modalVisible, setModalVisible] = useState(false);
   const [filesReadyToImport, setFilesReadyToImport] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const hasStartedRef = useRef(false);
 
+  const hasStartedRef = useRef(false);
+  const tableRef = useRef(null);
   const columnMenuRef = useRef(null);
   const editInputRef = useRef(null);
 
-  const ubication = ["hola", 1, 2];
+  const autoCompleteRef = useRef(null);
+  const [filteredOptions, setFilteredOptions] = useState([]);
+  const [currentSearchType, setCurrentSearchType] = useState("");
+  const [foreignTablesData, setForeignTablesData] = useState({
+    ubicacion_id: [],
+    techniques_id: [],
+    sizes_id: [],
+    communes_id: [],
+    types_id: [],
+    locations_id: [],
+    ubications_id: [],
+  });
+
   // Column configuration
   const columns = [
     { id: "name", header: "Inventario", type: "text", editable: false },
@@ -49,36 +64,131 @@ export default function Import() {
     },
     { id: "description", header: "Descripción", type: "text", editable: true },
     { id: "elements", header: "Elementos", type: "chips", editable: true },
-    { id: "date", header: "Fecha", type: "date", editable: true },
+    {
+      id: "date",
+      header: "Fecha\u00A0\u00A0\u00A0\u00A0",
+      type: "date",
+      editable: true,
+    },
     {
       id: "ubicacion_id",
-      header: "Ubicacion objeto",
+      header: "Ubicación\u00A0 objeto",
       type: "select",
-      options: ubication,
+      options: foreignTablesData.ubicacion_id,
+      editable: true,
+    },
+    {
+      id: "techniques_id",
+      header: "Técnica\u00A0\u00A0\u00A0\u00A0\u00A0",
+      type: "select",
+      options: foreignTablesData.techniques_id,
+      editable: true,
+    },
+    {
+      id: "sizes_id",
+      header: "Tamaño\u00A0\u00A0\u00A0\u00A0",
+      type: "select",
+      options: foreignTablesData.sizes_id,
+      editable: true,
+    },
+    {
+      id: "communes_id",
+      header: "Comuna\u00A0\u00A0\u00A0\u00A0",
+      type: "select",
+      options: foreignTablesData.communes_id,
+      editable: true,
+    },
+    {
+      id: "types_id",
+      header: "Tipo\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0",
+      type: "select",
+      options: foreignTablesData.types_id,
+      editable: true,
+    },
+    {
+      id: "locations_id",
+      header: "Locación\u00A0\u00A0\u00A0",
+      type: "select",
+      options: foreignTablesData.locations_id,
+      editable: true,
+    },
+    {
+      id: "ubications_id",
+      header: "Ubicación\u00A0\u00A0\u00A0",
+      type: "select",
+      options: foreignTablesData.ubications_id,
       editable: true,
     },
     { id: "censored", header: "Censurado", type: "boolean", editable: true },
     { id: "published", header: "Publicado", type: "boolean", editable: true },
   ];
 
-  // Fetch files
+  const initialFiles = async () => {
+    setIsLoading(true);
+    try {
+      await window.electronAPI.startCollectionProcessing(
+        location.state?.collectionPath
+      );
+    } catch (error) {
+      console.error("Processing error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchForeignTablesDB = async () => {
+    try {
+      const response = await window.electronAPI.fetchForeignTables();
+      const [
+        ubicaciones,
+        techniques,
+        sizes,
+        communes,
+        types,
+        locations,
+        ubications,
+      ] = response.data;
+
+      const transformData = (items, displayFormat) => {
+        return items.map((item) => ({
+          value: item.id,
+          display: displayFormat(item),
+        }));
+      };
+      const displayFormats = {
+        ubicacion: (item) =>
+          `${item.tipo}: ${item.numero_caja ?? ""}-${item.deposito ?? ""}-${
+            item.estante ?? ""
+          }-${item.piso ?? ""}`,
+        technique: (item) => item.description,
+        size: (item) => item.description,
+        commune: (item) => item.description,
+        type: (item) => item.description,
+        location: (item) => item.description,
+        ubication: (item) => item.enclosure,
+      };
+
+      setForeignTablesData({
+        ubicacion_id: transformData(ubicaciones, displayFormats.ubicacion),
+        techniques_id: transformData(techniques, displayFormats.technique),
+        sizes_id: transformData(sizes, displayFormats.size),
+        communes_id: transformData(communes, displayFormats.commune),
+        types_id: transformData(types, displayFormats.type),
+        locations_id: transformData(locations, displayFormats.location),
+        ubications_id: transformData(ubications, displayFormats.ubication),
+      });
+    } catch (error) {
+      console.error("Connection Failed:", error.message);
+    }
+  };
+
   useEffect(() => {
     const hasStarted = hasStartedRef.current;
     hasStartedRef.current = true;
     let isMounted = true;
-    setIsLoading(true);
 
     if (!hasStarted) {
-      const initialFiles = async () => {
-        try {
-          await window.electronAPI.startCollectionProcessing(
-            location.state?.collectionPath
-          );
-        } catch (error) {
-          console.error("Processing error:", error);
-          setIsLoading(false);
-        }
-      };
+      fetchForeignTablesDB();
       initialFiles();
     }
 
@@ -94,6 +204,13 @@ export default function Import() {
           description: "",
           elements: [],
           date: null,
+          ubicacion_id: "",
+          techniques_id: "",
+          sizes_id: "",
+          communes_id: "",
+          types_id: "",
+          locations_id: "",
+          ubications_id: "",
           censored: false,
           published: false,
         });
@@ -106,15 +223,9 @@ export default function Import() {
         const uniqueNewFiles = newFiles.filter((f) => !existingIds.has(f.id));
         return [...prevFiles, ...uniqueNewFiles];
       });
-
-      setIsLoading(false);
     };
 
     const cleanup = window.electronAPI.onFileProcessed(onFileProcessed);
-
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
 
     return () => {
       isMounted = false;
@@ -130,6 +241,10 @@ export default function Import() {
 
   // Handle edit cell
   const handleCellClick = (fileId, columnId, value) => {
+    if (editingCell?.fileId === fileId && editingCell?.columnId === columnId) {
+      return;
+    }
+
     const column = columns.find((col) => col.id === columnId);
     if (!column.editable) return;
 
@@ -145,7 +260,21 @@ export default function Import() {
     }
 
     setEditingCell({ fileId, columnId });
-    setEditValue(value);
+    if (column.type === "select") {
+      setCurrentSearchType(column.id);
+      const option = foreignTablesData[column.id]?.find(
+        (opt) => opt.value === value
+      );
+      setEditValues((prev) => ({
+        ...prev,
+        [columnId]: option?.display || "",
+      }));
+    } else {
+      setEditValues((prev) => ({
+        ...prev,
+        [columnId]: value,
+      }));
+    }
 
     setTimeout(() => {
       if (editInputRef.current) {
@@ -155,29 +284,11 @@ export default function Import() {
   };
 
   const handleEditChange = (e) => {
-    setEditValue(e.target.value);
-
-    if (editingCell) {
-      const { fileId, columnId } = editingCell;
-      const column = columns.find((col) => col.id === columnId);
-
-      if (column.type === "select") {
-        const value = e.target.value;
-        if (value !== "") {
-          const updatedFiles = files.map((file) => {
-            if (file.id === fileId) {
-              return { ...file, [columnId]: value };
-            }
-            return file;
-          });
-          setFiles(updatedFiles);
-          setTimeout(() => {
-            setEditingCell(null);
-            setEditValue("");
-          }, 50);
-        }
-      }
-    }
+    const { columnId } = editingCell;
+    setEditValues((prev) => ({
+      ...prev,
+      [columnId]: e.target.value,
+    }));
   };
 
   const handleEditComplete = () => {
@@ -185,7 +296,7 @@ export default function Import() {
 
     const { fileId, columnId } = editingCell;
     const column = columns.find((col) => col.id === columnId);
-    let value = editValue;
+    let value = editValues[columnId];
 
     const updatedFiles = files.map((file) => {
       if (file.id === fileId) {
@@ -202,19 +313,28 @@ export default function Import() {
 
     setFiles(updatedFiles);
     setEditingCell(null);
-    setEditValue("");
+    setEditValues((prev) => ({ ...prev, [columnId]: "" }));
   };
 
   const handleEditKeyDown = (e) => {
     if (e.key === "Enter") {
       handleEditComplete();
     } else if (e.key === "Escape") {
+      const { columnId } = editingCell;
       setEditingCell(null);
-      setEditValue("");
+      setEditValues((prev) => ({ ...prev, [columnId]: "" }));
     }
   };
 
   // Render cell content based on type
+  const searchOptions = (event) => {
+    const query = event.query.toLowerCase();
+    const filtered = foreignTablesData[currentSearchType]?.filter((option) =>
+      option.display.toLowerCase().includes(query)
+    );
+    setFilteredOptions(filtered);
+  };
+
   const renderCellContent = (file, column) => {
     const { id: columnId, type } = column;
     const value = file[columnId];
@@ -274,20 +394,47 @@ export default function Import() {
 
         case "select":
           return (
-            <select
-              ref={editInputRef}
-              value={editValue}
-              onChange={handleEditChange}
+            <AutoComplete
+              ref={autoCompleteRef}
+              value={editValues[columnId]}
+              suggestions={filteredOptions}
+              completeMethod={searchOptions}
+              field="display"
+              dropdown
+              forceSelection
+              placeholder="Seleccionar"
               className="cellEditSelect"
-              autoFocus
-            >
-              <option value="">Seleccionar</option>
-              {column.options.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
+              onChange={(e) =>
+                setEditValues((prev) => ({
+                  ...prev,
+                  [columnId]:
+                    typeof e.value === "string"
+                      ? e.value
+                      : e.value?.display || "",
+                }))
+              }
+              onSelect={(e) => {
+                setEditValues((prev) => ({
+                  ...prev,
+                  [columnId]: e.value.display,
+                }));
+                const updatedFiles = files.map((f) =>
+                  f.id === file.id ? { ...f, [columnId]: e.value.value } : f
+                );
+                setFiles(updatedFiles);
+              }}
+              onFocus={() => {
+                setTimeout(() => {
+                  const input = autoCompleteRef.current
+                    ?.getElement()
+                    ?.querySelector("input");
+                  if (input) {
+                    input.select();
+                  }
+                }, 0);
+              }}
+              itemTemplate={(option) => <div>{option.display}</div>}
+            />
           );
 
         default:
@@ -295,7 +442,7 @@ export default function Import() {
             <input
               ref={editInputRef}
               type={type === "number" ? "number" : "text"}
-              value={editValue ?? ""}
+              value={editValues[columnId] ?? ""}
               onChange={handleEditChange}
               onBlur={handleEditComplete}
               onKeyDown={handleEditKeyDown}
@@ -410,10 +557,20 @@ export default function Import() {
         );
 
       default:
+        const displayOption =
+          column.options?.find((opt) => opt.value === value) || null;
         return (
           <div className="visibleCellControl inputCell">
             <div className="inputCellValue">
-              {value ? value : <FaEdit className="inputCellIcon" />}
+              {value ? (
+                column.type === "select" ? (
+                  displayOption?.display
+                ) : (
+                  value
+                )
+              ) : (
+                <FaEdit className="inputCellIcon" />
+              )}
             </div>
           </div>
         );
@@ -443,12 +600,10 @@ export default function Import() {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
 
-      // Handle empty values
       if (aValue === "" && bValue === "") return 0;
       if (aValue === "") return 1;
       if (bValue === "") return -1;
 
-      // Compare based on data type
       if (typeof aValue === "string") {
         if (sortConfig.direction === "ascending") {
           return aValue.localeCompare(bValue);
@@ -502,11 +657,11 @@ export default function Import() {
             <>
               {column.options.map((option) => (
                 <button
-                  key={option}
+                  key={option.value}
                   className="columnMenuButton"
-                  onClick={() => fillAllRows(column.id, option)}
+                  onClick={() => fillAllRows(column.id, option.value)}
                 >
-                  {option}
+                  {option.display}
                 </button>
               ))}
               <button
@@ -542,11 +697,11 @@ export default function Import() {
                 <>
                   {column.options.map((option) => (
                     <button
-                      key={option}
+                      key={option.value}
                       className="columnMenuButton"
-                      onClick={() => fillSelectedRows(column.id, option)}
+                      onClick={() => fillSelectedRows(column.id, option.value)}
                     >
-                      {option}
+                      {option.display}
                     </button>
                   ))}
                   <button
@@ -687,7 +842,15 @@ export default function Import() {
 
   // Sending data
   const validateFilesForImport = (files) => {
-    const mandatoryColumns = [{ id: "collection_id", header: "Colección" }];
+    const mandatoryColumns = [
+      { id: "ubicacion_id", header: "Ubicación objeto" },
+      { id: "techniques_id", header: "Técnica" },
+      { id: "sizes_id", header: "Tamaño" },
+      { id: "communes_id", header: "Comuna" },
+      { id: "types_id", header: "Tipo" },
+      { id: "locations_id", header: "Locación" },
+      { id: "ubications_id", header: "Ubicación" },
+    ];
     const errors = [];
 
     files.forEach((file) => {
@@ -695,7 +858,7 @@ export default function Import() {
         if (!file[id] || file[id].toString().trim() === "") {
           errors.push({
             fileId: file.id,
-            column: header,
+            column: id,
             message: `Campo vacío en columna ${header}`,
           });
         }
@@ -754,13 +917,13 @@ export default function Import() {
       censored_reason: null,
       published: file.published ? 1 : 0,
       ai_description: null,
-      ubicacion_id: null,
-      techniques_id: null,
-      sizes_id: null,
-      communes_id: null,
-      types_id: null,
-      locations_id: null,
-      ubications_id: null,
+      ubicacion_id: file.ubicacion_id || null,
+      techniques_id: file.techniques_id || null,
+      sizes_id: file.sizes_id || null,
+      communes_id: file.communes_id || null,
+      types_id: file.types_id || null,
+      locations_id: file.locations_id || null,
+      ubications_id: file.ubications_id || null,
       created_at: `${nowYear}-${nowMonth}-${nowDay} ${hours}:${minutes}:${seconds}`,
       updated_at: `${nowYear}-${nowMonth}-${nowDay} ${hours}:${minutes}:${seconds}`,
     };
@@ -773,13 +936,21 @@ export default function Import() {
     const validationErrors = validateFilesForImport(files);
 
     if (validationErrors.length > 0) {
-      const errorFileIds = [...new Set(validationErrors.map((e) => e.fileId))];
+      const errorMap = validationErrors.reduce((acc, error) => {
+        if (!acc[error.fileId]) {
+          acc[error.fileId] = new Set();
+        }
+        acc[error.fileId].add(error.column);
+        return acc;
+      }, {});
+
       setFiles((prevFiles) =>
         prevFiles.map((file) => ({
           ...file,
-          hasError: errorFileIds.includes(file.id),
+          errorColumns: errorMap[file.id] ? Array.from(errorMap[file.id]) : [],
         }))
       );
+
       showStatusMessage(
         "error",
         `Error en ${validationErrors[0].fileId}: ${validationErrors[0].message}`
@@ -788,7 +959,7 @@ export default function Import() {
     }
 
     setFiles((prevFiles) =>
-      prevFiles.map((file) => ({ ...file, hasError: false }))
+      prevFiles.map((file) => ({ ...file, errorColumns: [] }))
     );
 
     const importData = files.map(transformFileForDatabase);
@@ -890,7 +1061,7 @@ export default function Import() {
                 </div>
               </div>
 
-              <div className="tableWrapper">
+              <div className="tableWrapper" ref={tableRef}>
                 <table>
                   <thead>
                     <tr>
@@ -942,10 +1113,9 @@ export default function Import() {
                     {sortedData.map((file) => (
                       <tr
                         key={file.id}
-                        className={`
-                          ${selectedRows.includes(file.id) ? "rowSelected" : ""}
-                          ${file.hasError ? "rowError" : ""}
-                        `}
+                        className={
+                          selectedRows.includes(file.id) ? "rowSelected" : ""
+                        }
                       >
                         <td className="selectColumn">
                           <input
@@ -977,27 +1147,34 @@ export default function Import() {
                           </div>
                         </td>
 
-                        {columns.map((column) => (
-                          <td
-                            key={`${file.id}-${column.id}`}
-                            className={`dataCell ${
-                              column.editable ? "editableCell" : ""
-                            }`}
-                            onClick={() =>
-                              handleCellClick(
-                                file.id,
-                                column.id,
-                                file[column.id]
-                              )
-                            }
-                          >
-                            {renderCellContent(file, column)}
-                          </td>
-                        ))}
+                        {columns.map((column) => {
+                          const hasError = file.errorColumns?.includes(
+                            column.id
+                          );
+                          return (
+                            <td
+                              key={`${file.id}-${column.id}`}
+                              className={`dataCell ${
+                                column.editable ? "editableCell" : ""
+                              } ${hasError ? "cellError" : ""}
+                            `}
+                              onClick={() =>
+                                handleCellClick(
+                                  file.id,
+                                  column.id,
+                                  file[column.id]
+                                )
+                              }
+                            >
+                              {renderCellContent(file, column)}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                <TableScrollbar tableRef={tableRef} />
               </div>
             </div>
           </div>

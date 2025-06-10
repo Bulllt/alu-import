@@ -1,5 +1,5 @@
 const FileManager = require("./fileManager");
-const { ipcMain, dialog } = require("electron");
+const { ipcMain, dialog, net } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -43,6 +43,13 @@ class IPCHandlers {
       this.handleStartCollectionProcessing.bind(this)
     );
     ipcMain.handle("execute-rollback", this.handleExecuteRollback.bind(this));
+
+    // API Calls
+    ipcMain.handle("fetch-collections", this.handleFetchCollections.bind(this));
+    ipcMain.handle(
+      "fetch-foreign-tables",
+      this.handleFetchForeignTables.bind(this)
+    );
 
     // Cleanup on exit
     ipcMain.on("close-app", () => {
@@ -114,6 +121,19 @@ class IPCHandlers {
 
   async handleStartCollectionProcessing(_, collectionPath) {
     try {
+      const collectionFolder = path.basename(collectionPath);
+      const codePrefix = collectionFolder.split("_")[0];
+      const lastInventoryNumber = await this.handleFetchLastInventoryNumber(
+        codePrefix
+      );
+
+      const currentConfig = this.readConfig();
+      const updatedConfig = {
+        ...currentConfig,
+        inventoryNumber: lastInventoryNumber.data,
+      };
+      this.writeConfig(updatedConfig);
+
       const success = await this.fileManager.startCollectionProcessing(
         collectionPath
       );
@@ -138,6 +158,18 @@ class IPCHandlers {
       console.error("Rollback failed:", error);
       return false;
     }
+  }
+
+  handleFetchCollections() {
+    return this.makeGETRequest("/api/collections");
+  }
+
+  handleFetchForeignTables() {
+    return this.makeGETRequest("/api/foreignTables");
+  }
+
+  handleFetchLastInventoryNumber(codePrefix) {
+    return this.makeGETRequest(`/api/lastInventoryNumber/${codePrefix}`);
   }
 
   // Helpers functions
@@ -165,6 +197,51 @@ class IPCHandlers {
       console.error("Error writing config:", error);
       throw error;
     }
+  }
+  makeGETRequest(path) {
+    return new Promise((resolve, reject) => {
+      const request = net.request({
+        method: "GET",
+        protocol: "http:",
+        hostname: "alu.test",
+        path,
+      });
+
+      let responseData = "";
+
+      request.on("response", (response) => {
+        response.on("data", (chunk) => {
+          responseData += chunk.toString();
+        });
+
+        response.on("end", () => {
+          try {
+            const parsedData = JSON.parse(responseData);
+            resolve({
+              statusCode: response.statusCode,
+              headers: response.headers,
+              status: parsedData.status,
+              data: parsedData.data,
+            });
+          } catch (error) {
+            console.error("[NET] JSON parse error:", error);
+            resolve({
+              statusCode: response.statusCode,
+              status: "error",
+              error: "Invalid JSON response",
+              rawData: responseData,
+            });
+          }
+        });
+      });
+
+      request.on("error", (error) => {
+        console.error("[NET] Request error:", error);
+        reject(new Error(`Request failed: ${error.message}`));
+      });
+
+      request.end();
+    });
   }
 }
 

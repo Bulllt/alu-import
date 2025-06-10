@@ -10,18 +10,13 @@ export default function SelectCollection() {
   const [detectedCollections, setDetectedCollections] = useState([]);
   const [selectedCollection, setSelectedCollection] = useState("");
   const [filteredCollections, setFilteredCollections] = useState([]);
-  const [selectedCollectionID, setSelectedCollectionID] = useState("");
-  const [filteredCollectionsID, setFilteredCollectionsID] = useState([]);
+  const [collectionsDB, setCollectionsDB] = useState([]);
+  const [selectedCollectionDB, setSelectedCollectionDB] = useState("");
+  const [filteredCollectionsDB, setFilteredCollectionsDB] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const hasStarted = useRef(false);
 
-  // Example collection options - replace with actual API call later
-  const dbCollections = ["Colección A", "Colección B", "Colección C"];
-
   const loadCollections = async () => {
-    if (hasStarted.current) return;
-    hasStarted.current = true;
-    setIsLoading(true);
     try {
       const folderPath = await window.electronAPI.getFolderPath();
       if (folderPath) {
@@ -34,13 +29,37 @@ export default function SelectCollection() {
     } catch (error) {
       console.error("Failed to initialize watcher:", error);
       setDetectedCollections([]);
+    }
+  };
+
+  const fetchCollectionsDB = async () => {
+    setIsLoading(true);
+    try {
+      const response = await window.electronAPI.fetchCollections();
+      const formatted = response.data.map((c) => ({
+        ...c,
+        display: `${c.id} (${c.donor})`,
+      }));
+
+      setCollectionsDB(formatted);
+    } catch (error) {
+      console.error("Connection Failed:", error.message);
+      setCollectionsDB([]);
     } finally {
       setIsLoading(false);
     }
   };
+
   useEffect(() => {
+    if (hasStarted.current) return;
+    hasStarted.current = true;
     loadCollections();
+    fetchCollectionsDB();
   }, []);
+  const refresh = () => {
+    loadCollections();
+    fetchCollectionsDB();
+  };
 
   const searchCollections = (event) => {
     const query = event.query.toLowerCase();
@@ -52,12 +71,12 @@ export default function SelectCollection() {
     setFilteredCollections(filtered);
   };
 
-  const searchCollectionsID = (event) => {
+  const searchCollectionsDB = (event) => {
     const query = event.query.toLowerCase();
-    const filtered = dbCollections.filter((collection) =>
-      collection.toLowerCase().includes(query)
+    const filtered = collectionsDB.filter((collection) =>
+      collection.display.toLowerCase().includes(query)
     );
-    setFilteredCollectionsID(filtered);
+    setFilteredCollectionsDB(filtered);
   };
 
   const handleCollectionSelect = async (collectionPath) => {
@@ -67,7 +86,7 @@ export default function SelectCollection() {
       navigate("/import", {
         state: {
           collectionPath,
-          dbCollectionId: selectedCollectionID,
+          dbCollectionId: selectedCollectionDB.id,
         },
       });
     } catch (error) {
@@ -75,13 +94,23 @@ export default function SelectCollection() {
     }
   };
 
-  const itemTemplate = (item) => {
-    if (typeof item === "string") {
-      return <div>{item}</div>;
+  const collectionsTemplate = (item) => {
+    if (!item) {
+      return <div>Error</div>;
     }
     return (
       <div>
         <strong>{item.name}</strong> ({item.code})
+      </div>
+    );
+  };
+  const dbCollectionsTemplate = (item) => {
+    if (!item) {
+      return <div>Error</div>;
+    }
+    return (
+      <div>
+        <strong>{item.id}</strong> ({item.donor})
       </div>
     );
   };
@@ -105,7 +134,7 @@ export default function SelectCollection() {
               dropdown
               forceSelection
               placeholder="Selecciona una colección"
-              itemTemplate={itemTemplate}
+              itemTemplate={collectionsTemplate}
               onChange={(e) => setSelectedCollection(e.value)}
               disabled={!detectedCollections.length}
             />
@@ -114,13 +143,15 @@ export default function SelectCollection() {
           <div className="selectGroup">
             <label>Asignar a colección de base de datos:</label>
             <AutoComplete
-              value={selectedCollectionID}
-              suggestions={filteredCollectionsID}
-              completeMethod={searchCollectionsID}
+              value={selectedCollectionDB}
+              suggestions={filteredCollectionsDB}
+              completeMethod={searchCollectionsDB}
+              field="display"
               dropdown
               forceSelection
               placeholder="Selecciona una ID para esta colección"
-              onChange={(e) => setSelectedCollectionID(e.value)}
+              itemTemplate={dbCollectionsTemplate}
+              onChange={(e) => setSelectedCollectionDB(e.value)}
               disabled={!selectedCollection}
             />
           </div>
@@ -130,13 +161,13 @@ export default function SelectCollection() {
               className="confirmButton"
               onClick={() => handleCollectionSelect(selectedCollection?.path)}
               disabled={
-                !selectedCollection || !selectedCollectionID || isLoading
+                !selectedCollection || !selectedCollectionDB || isLoading
               }
             >
               Procesar Colección
             </button>
 
-            <button className="refreshButton" onClick={loadCollections}>
+            <button className="refreshButton" onClick={refresh}>
               Actualizar Colecciones
             </button>
           </div>

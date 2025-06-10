@@ -136,7 +136,7 @@
 }
 
 .tableWrapper {
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 table {
   width: 100%;
@@ -215,25 +215,6 @@ tr:hover {
   background-color: rgba(50, 203, 146, 0.15) !important;
 }
 
-.rowError {
-  background-color: rgba(255, 100, 100, 0.15) !important;
-}
-
-.rowError::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background-color: #ff6b6b;
-}
-
-.rowSelected.rowError {
-  background-color: rgba(255, 100, 100, 0.25) !important;
-  box-shadow: 0 0 0 1px rgba(255, 100, 100, 0.5) inset;
-}
-
 /* Action column */
 .actionColumn {
   width: 80px;
@@ -310,6 +291,26 @@ tr:hover {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
+.cellError {
+  background-color: rgba(255, 100, 100, 0.15) !important;
+}
+.cellError:hover {
+  background-color: rgba(255, 100, 100, 0.45) !important;
+}
+.cellError::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: #ff6b6b;
+}
+.rowSelected.cellError {
+  background-color: rgba(255, 100, 100, 0.25) !important;
+  box-shadow: 0 0 0 1px rgba(255, 100, 100, 0.5) inset;
+}
+
 .cellEditInput,
 .cellEditSelect {
   position: absolute;
@@ -323,6 +324,15 @@ tr:hover {
   background-color: var(--tertiary-color);
   color: var(--text-color);
   z-index: 2;
+}
+.cellEditSelect .p-autocomplete-input {
+  font-size: 0.95rem;
+  border: none;
+  border-radius: 0;
+}
+.cellEditSelect .p-autocomplete-input:focus {
+  border-color: none;
+  box-shadow: none;
 }
 
 .cellEditInput:focus,

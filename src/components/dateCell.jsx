@@ -120,7 +120,7 @@ export default function DateCell({ file, onChange, onComplete }) {
           options={precisionOptions}
           onChange={handlePrecisionChange}
           onClick={handleDropdownClick}
-          placeholder="Formato de fecha"
+          placeholder="Formato"
           appendTo="self"
           autoFocus
         />

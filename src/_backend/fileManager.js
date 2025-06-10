@@ -7,7 +7,6 @@ class FileManager {
     this.watchers = new Map();
     this.sendStatusToRenderer = sendStatusToRenderer || (() => {});
     this.configPath = configPath;
-    this.currentCollection = null;
     this.codePrefix = null;
     this.lastInventoryNumber = 0;
     this.pendingCollections = [];
@@ -26,22 +25,12 @@ class FileManager {
     fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2));
   }
 
-  async initializeCodePrefix(collectionPath) {
+  initializeCodePrefix(collectionPath) {
     const collectionFolder = path.basename(collectionPath);
     this.codePrefix = collectionFolder.split("_")[0];
-    this.currentCollection = collectionPath;
 
-    // Simulate database call - replace with actual API call later
-    this.lastInventoryNumber = await this.getLastInventoryNumber(
-      this.codePrefix
-    );
-  }
-
-  async getLastInventoryNumber(codePrefix) {
-    // Simulated database response
-    if (codePrefix === "DC") return 1;
-    if (codePrefix === "D") return 5;
-    return 0;
+    const config = this.readConfig();
+    this.lastInventoryNumber = config.inventoryNumber;
   }
 
   async createWatcher(rootFolderPath) {
