@@ -245,6 +245,13 @@ tr:hover {
   color: var(--accent-color);
 }
 
+/* Image column */
+.imageColumn {
+  width: 100px;
+  min-width: 100px;
+  text-align: center;
+}
+
 /* Table controls */
 .tableControls {
   display: flex;

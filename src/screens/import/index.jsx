@@ -6,6 +6,7 @@ import DateCell from "../../components/dateCell.jsx";
 import { Chips } from "primereact/chips";
 import { AutoComplete } from "primereact/autocomplete";
 import TableScrollbar from "../../components/tableScrollbar.jsx";
+import ImagePreview from "../../components/imagePreview.jsx";
 
 import {
   FaWindowClose,
@@ -1073,7 +1074,11 @@ export default function Import() {
                           className="selectCheckbox"
                         />
                       </th>
+
                       <th className="actionColumn">Acciones</th>
+
+                      <th className="imageColumn">Imagen</th>
+
                       {columns.map((column) => (
                         <th key={column.id} className="columnHeader">
                           <div className="columnHeaderContent">
@@ -1145,6 +1150,10 @@ export default function Import() {
                               </button>
                             )}
                           </div>
+                        </td>
+
+                        <td className="imageColumn">
+                          <ImagePreview file={file} />
                         </td>
 
                         {columns.map((column) => {

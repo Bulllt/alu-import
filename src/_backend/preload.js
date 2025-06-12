@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   offFileProcessed: (callback) => {
     ipcRenderer.removeListener("file-processed", callback);
   },
+  openImage: (path) => ipcRenderer.invoke("open-image", path),
+  getImageThumbnail: (path) => ipcRenderer.invoke("get-image-thumbnail", path),
 
   // API calls
   fetchCollections: () => ipcRenderer.invoke("fetch-collections"),

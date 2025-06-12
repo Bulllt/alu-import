@@ -290,29 +290,37 @@ class FileManager {
     const items = this.originalNames.get(collectionPath);
     if (!items) return;
 
-    for (const item of items) {
+    const directories = items.filter((item) => item.isDirectory);
+    const files = items.filter((item) => !item.isDirectory);
+
+    for (const item of [...files].reverse()) {
       try {
         let currentPath, originalPath;
 
-        if (item.isDirectory) {
+        if (item.parentFolder) {
+          const folderItem = directories.find(
+            (dir) => dir.currentName === item.parentFolder
+          );
+          const originalFolderName =
+            folderItem?.originalName || item.parentFolder;
+
+          currentPath = path.join(
+            collectionPath,
+            item.parentFolder,
+            item.currentName
+          );
+          originalPath = path.join(
+            collectionPath,
+            originalFolderName,
+            item.originalName
+          );
+
+          await fs.promises.mkdir(path.dirname(originalPath), {
+            recursive: true,
+          });
+        } else {
           currentPath = path.join(collectionPath, item.currentName);
           originalPath = path.join(collectionPath, item.originalName);
-        } else {
-          if (item.parentFolder) {
-            currentPath = path.join(
-              collectionPath,
-              item.parentFolder,
-              item.currentName
-            );
-            originalPath = path.join(
-              collectionPath,
-              item.parentFolder,
-              item.originalName
-            );
-          } else {
-            currentPath = path.join(collectionPath, item.currentName);
-            originalPath = path.join(collectionPath, item.originalName);
-          }
         }
 
         if (fs.existsSync(currentPath)) {
@@ -320,6 +328,24 @@ class FileManager {
         }
       } catch (error) {
         console.error(`Rollback failed for ${item.currentName}:`, error);
+      }
+    }
+
+    for (const item of [...directories].reverse()) {
+      try {
+        const currentPath = path.join(collectionPath, item.currentName);
+
+        if (fs.existsSync(currentPath)) {
+          const dirContents = await fs.promises.readdir(currentPath);
+          if (dirContents.length === 0) {
+            await fs.promises.rmdir(currentPath);
+          }
+        }
+      } catch (error) {
+        console.error(
+          `Rollback failed for directory ${item.currentName}:`,
+          error
+        );
       }
     }
 

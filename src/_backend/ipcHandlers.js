@@ -1,7 +1,8 @@
 const FileManager = require("./fileManager");
-const { ipcMain, dialog, net } = require("electron");
+const { ipcMain, dialog, net, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const sharp = require("sharp");
 
 class IPCHandlers {
   constructor() {
@@ -49,6 +50,13 @@ class IPCHandlers {
     ipcMain.handle(
       "fetch-foreign-tables",
       this.handleFetchForeignTables.bind(this)
+    );
+
+    // Extra
+    ipcMain.handle("open-image", this.handleOpenImage.bind(this));
+    ipcMain.handle(
+      "get-image-thumbnail",
+      this.handleGetImageThumbnail.bind(this)
     );
 
     // Cleanup on exit
@@ -170,6 +178,23 @@ class IPCHandlers {
 
   handleFetchLastInventoryNumber(codePrefix) {
     return this.makeGETRequest(`/api/lastInventoryNumber/${codePrefix}`);
+  }
+
+  async handleGetImageThumbnail(_, path) {
+    try {
+      const buffer = await sharp(path)
+        .resize(100, 100, { fit: "inside" })
+        .toBuffer();
+
+      return `data:image/png;base64,${buffer.toString("base64")}`;
+    } catch (error) {
+      console.error("Error generating thumbnail:", error);
+      return null;
+    }
+  }
+
+  handleOpenImage(_, path) {
+    shell.openPath(path);
   }
 
   // Helpers functions

@@ -1,0 +1,48 @@
+.imageLoading {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.loadingIcon {
+  animation: spin 1s linear infinite;
+  color: var(--accent-color);
+}
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.imagePreview {
+  cursor: pointer;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumbnailImage {
+  max-height: 60px;
+  max-width: 100px;
+  object-fit: contain;
+  border-radius: 3px;
+}
+
+.imagePlaceholder {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--secondary-color);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.placeholderIcon {
+  font-size: 20px;
+  opacity: 0.5;
+}
