@@ -34,15 +34,20 @@
 
 .imagePlaceholder {
   height: 60px;
+  width: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--secondary-color);
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
+  border-radius: 5px;
 }
 
 .placeholderIcon {
   font-size: 20px;
   opacity: 0.5;
+}
+.audioIcon {
+  font-size: 20px;
+  color: var(--accent-color);
 }

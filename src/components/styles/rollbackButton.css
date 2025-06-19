@@ -1,0 +1,69 @@
+.rollbackContainer {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 1000;
+  opacity: 0.5;
+  transition: all 0.3s ease;
+  width: 50px;
+  height: 40px;
+  overflow: hidden;
+}
+
+.rollbackContainer.hovered {
+  opacity: 1;
+  width: 220px;
+  background-color: var(--primary-color);
+  border-radius: 25px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--secondary-color);
+}
+
+.rollbackContent {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 10px;
+}
+
+.rollbackText {
+  color: var(--text-color);
+  font-size: 0.9rem;
+  white-space: nowrap;
+  cursor: default;
+  margin-right: 5px;
+}
+
+.rollbackButton {
+  background-color: var(--secondary-color);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-color);
+  transition: all 0.3s ease;
+}
+
+.rollbackButton:hover {
+  background-color: var(--accent-color);
+  transform: scale(1.1);
+}
+
+.rollbackButton.confirm {
+  background-color: #e74c3c;
+  animation: pulse 0.5s ease infinite alternate;
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.1);
+  }
+}

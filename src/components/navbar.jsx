@@ -18,11 +18,21 @@ export default function Navbar() {
   const [selectedCollection, setSelectedCollection] = useState(false);
 
   useEffect(() => {
-    const savedFolderPath = localStorage.getItem("folderPath");
-    const savedCollection = localStorage.getItem("selectedCollection");
+    const handleStorageChange = () => {
+      const savedFolderPath = localStorage.getItem("folderPath");
+      const savedCollection = localStorage.getItem("selectedCollection");
+      setFolderPath(savedFolderPath);
+      setSelectedCollection(savedCollection);
+    };
 
-    if (savedFolderPath) setFolderPath(savedFolderPath);
-    if (savedCollection) setSelectedCollection(savedCollection);
+    handleStorageChange();
+
+    // Listen for storage changes
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, [location]);
 
   const isOnImportScreen = location.pathname.startsWith("/import");
@@ -56,7 +66,7 @@ export default function Navbar() {
 
   const handleConfirmNavigation = () => {
     localStorage.removeItem("selectedCollection");
-    setSelectedCollection(null);
+    setSelectedCollection(false);
     setWarningVisible(false);
     navigate(targetPath);
   };

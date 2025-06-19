@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useContext } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { StatusContext } from "../../context/statusContext.jsx";
 import ImportConfirmation from "../../components/importConfirmation.jsx";
 import DateCell from "../../components/dateCell.jsx";
@@ -7,6 +7,7 @@ import { Chips } from "primereact/chips";
 import { AutoComplete } from "primereact/autocomplete";
 import TableScrollbar from "../../components/tableScrollbar.jsx";
 import ImagePreview from "../../components/imagePreview.jsx";
+import LoadingModal from "../../components/loadingModal.jsx";
 
 import {
   FaWindowClose,
@@ -24,6 +25,7 @@ import "./style.css";
 
 export default function Import() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [files, setFiles] = useState([]);
   const [editingCell, setEditingCell] = useState(null);
   const [editValues, setEditValues] = useState({});
@@ -35,6 +37,7 @@ export default function Import() {
   const [modalVisible, setModalVisible] = useState(false);
   const [filesReadyToImport, setFilesReadyToImport] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingModalVisible, setLoadingModalVisible] = useState(false);
 
   const hasStartedRef = useRef(false);
   const tableRef = useRef(null);
@@ -54,6 +57,8 @@ export default function Import() {
     ubications_id: [],
   });
 
+  const [importProgress, setImportProgress] = useState(0);
+
   // Column configuration
   const columns = [
     { id: "name", header: "Inventario", type: "text", editable: false },
@@ -63,8 +68,6 @@ export default function Import() {
       type: "text",
       editable: false,
     },
-    { id: "description", header: "Descripción", type: "text", editable: true },
-    { id: "elements", header: "Elementos", type: "chips", editable: true },
     {
       id: "date",
       header: "Fecha\u00A0\u00A0\u00A0\u00A0",
@@ -133,7 +136,9 @@ export default function Import() {
     } catch (error) {
       console.error("Processing error:", error);
     } finally {
-      setIsLoading(false);
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 500);
     }
   };
 
@@ -202,8 +207,6 @@ export default function Import() {
           name: file.newName,
           path: file.path,
           collection_id: location.state?.dbCollectionId || "",
-          description: "",
-          elements: [],
           date: null,
           ubicacion_id: "",
           techniques_id: "",
@@ -899,18 +902,19 @@ export default function Import() {
     const seconds = String(now.getSeconds()).padStart(2, "0");
 
     const columnsToSend = {
-      code: file.id.split("_")[0] || "",
-      n_object: file.id.split("_")[1] || "",
-      n_ic: file.id.split("_")[2] || "",
+      code: file.id.split("_")[0],
+      n_object: file.id.split("_")[1],
+      n_ic: file.id.split("_")[2],
       collection_id: file.collection_id,
+      path: file.path,
       container_annotations: null,
       object_annotations: null,
       title: null,
-      description: file.description || null,
+      description: null,
       history: null,
       information: null,
       peoples: null,
-      elements: file.elements || null,
+      elements: null,
       year: year,
       month: month,
       day: day,
@@ -967,25 +971,54 @@ export default function Import() {
     setFilesReadyToImport(importData);
     setModalVisible(true);
   };
+
+  useEffect(() => {
+    const cleanup = window.electronAPI.onImportProgress((progress) => {
+      setImportProgress(progress);
+      if (progress === 100) {
+        setTimeout(() => {
+          navigate("/selectCollection");
+          setLoadingModalVisible(false);
+        }, 500);
+      }
+    });
+
+    return () => cleanup();
+  }, []);
   const handleConfirmImport = async () => {
     try {
       setModalVisible(false);
-      showStatusMessage("success", `${files.length} archivos importados`);
-
-      const deletionResult = await window.electronAPI.deleteProcessedFiles();
-      if (deletionResult === true) {
-        setFiles([]);
-      } else {
-        showStatusMessage("error", "No se pudo limpiar la carpeta:");
-      }
-    } catch (error) {
       showStatusMessage(
-        "error",
-        `Error durante la importación: ${error.message}`
+        "success",
+        "Se esta importando la colección, por favor espera"
       );
+      setLoadingModalVisible(true);
+      setImportProgress(0);
+
+      const type = files[0].path.split("\\");
+      await window.electronAPI.importProcessedFiles(
+        filesReadyToImport,
+        location.state?.collectionPath,
+        type[3]
+      );
+      setFiles([]);
+      localStorage.removeItem("selectedCollection");
+    } catch (error) {
+      setLoadingModalVisible(false);
+      showStatusMessage("error", `Error durante la importación`);
       console.error("Import error:", error);
     }
   };
+
+  if (loadingModalVisible) {
+    return (
+      <div className="importContainer">
+        <div className="loadingModalContainer">
+          <LoadingModal progress={importProgress} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="importContainer">

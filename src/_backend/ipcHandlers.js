@@ -1,8 +1,11 @@
 const FileManager = require("./fileManager");
 const { ipcMain, dialog, net, shell } = require("electron");
 const path = require("path");
-const fs = require("fs");
+const fs = require("fs-extra");
 const sharp = require("sharp");
+const crypto = require("crypto");
+require("dotenv").config();
+const ffmpeg = require("fluent-ffmpeg");
 
 class IPCHandlers {
   constructor() {
@@ -45,18 +48,24 @@ class IPCHandlers {
     );
     ipcMain.handle("execute-rollback", this.handleExecuteRollback.bind(this));
 
+    // File operations
+    ipcMain.handle("open-image", this.handleOpenImage.bind(this));
+    ipcMain.handle(
+      "get-image-thumbnail",
+      this.handleGetImageThumbnail.bind(this)
+    );
+    ipcMain.handle(
+      "import-processed-files",
+      this.handleImportProcessedFiles.bind(this)
+    );
+    ipcMain.handle("has-last-import", this.handleHasLastImport.bind(this));
+    ipcMain.handle("import-rollback", this.handleImportRollback.bind(this));
+
     // API Calls
     ipcMain.handle("fetch-collections", this.handleFetchCollections.bind(this));
     ipcMain.handle(
       "fetch-foreign-tables",
       this.handleFetchForeignTables.bind(this)
-    );
-
-    // Extra
-    ipcMain.handle("open-image", this.handleOpenImage.bind(this));
-    ipcMain.handle(
-      "get-image-thumbnail",
-      this.handleGetImageThumbnail.bind(this)
     );
 
     // Cleanup on exit
@@ -168,24 +177,109 @@ class IPCHandlers {
     }
   }
 
-  handleFetchCollections() {
-    return this.makeGETRequest("/api/collections");
-  }
-
-  handleFetchForeignTables() {
-    return this.makeGETRequest("/api/foreignTables");
-  }
-
-  handleFetchLastInventoryNumber(codePrefix) {
-    return this.makeGETRequest(`/api/lastInventoryNumber/${codePrefix}`);
-  }
-
-  async handleGetImageThumbnail(_, path) {
+  async handleImportProcessedFiles(_, files, collectionPath, fileType) {
     try {
-      const buffer = await sharp(path)
+      if (fileType === "imagenes") {
+        await this.fileManager.processImageImport(files, collectionPath);
+      } else if (fileType === "peliculas") {
+        await this.fileManager.processMovieImport(files, collectionPath);
+      } else if (fileType === "audios") {
+        await this.fileManager.processAudioImport(files, collectionPath);
+      } else if (fileType === "documentos") {
+        await this.fileManager.processDocumentImport(files, collectionPath);
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error with the import:", error);
+      throw error;
+    }
+  }
+
+  async handleHasLastImport() {
+    const config = this.readConfig();
+    return !!config.lastImportCode;
+  }
+  async handleImportRollback() {
+    try {
+      const config = this.readConfig();
+      if (!config.lastImportCode) {
+        throw new Error("No last import found");
+      }
+
+      await this.fileManager.cleanLastImport();
+
+      const timestamp = Math.floor(Date.now() / 1000);
+      const secret = process.env.APP_SECRET;
+      const hmac = crypto
+        .createHmac("sha256", secret)
+        .update(`${timestamp}`)
+        .digest("hex");
+      const token = `${timestamp}:${hmac}`;
+
+      await this.makeGETRequest(
+        `/api/deleteLastImport/${config.lastImportCode}`,
+        token
+      );
+
+      const updatedConfig = {
+        ...config,
+        lastImportCode: null,
+        lastCollectionName: null,
+        lastCollectionType: null,
+      };
+      this.writeConfig(updatedConfig);
+      this.sendStatusToRenderer(
+        "success",
+        "Se ha eliminado la última importación"
+      );
+      return true;
+    } catch (error) {
+      console.error("import rollback failed:", error);
+      throw error;
+    }
+  }
+
+  async handleGetImageThumbnail(_, filePath) {
+    try {
+      const ext = path.extname(filePath).toLowerCase();
+      const videoExtensions = [".mp4", ".avi", ".mov", ".mkv", ".webm"];
+      const audioExtensions = [".mp3", ".wav", ".aac", ".flac", ".ogg", ".m4a"];
+
+      if (audioExtensions.includes(ext)) {
+        return "audio";
+      }
+
+      if (videoExtensions.includes(ext)) {
+        const tempDir = path.join(__dirname, "alu-thumbnails");
+        await fs.ensureDir(tempDir);
+        const thumbnailFilename = `${path.basename(
+          filePath,
+          ext
+        )}-${Date.now()}.png`;
+        const thumbnailPath = path.join(tempDir, thumbnailFilename);
+
+        await new Promise((resolve, reject) => {
+          ffmpeg(filePath)
+            .screenshots({
+              timestamps: ["1"],
+              filename: thumbnailFilename,
+              folder: tempDir,
+              size: "100x?",
+            })
+            .on("end", resolve)
+            .on("error", reject);
+        });
+
+        const thumbBuffer = await fs.readFile(thumbnailPath);
+        await fs.remove(thumbnailPath);
+
+        return `data:image/png;base64,${thumbBuffer.toString("base64")}`;
+      }
+
+      const buffer = await sharp(filePath)
         .resize(100, 100, { fit: "inside" })
         .toBuffer();
-
       return `data:image/png;base64,${buffer.toString("base64")}`;
     } catch (error) {
       console.error("Error generating thumbnail:", error);
@@ -195,6 +289,21 @@ class IPCHandlers {
 
   handleOpenImage(_, path) {
     shell.openPath(path);
+  }
+
+  handleFetchCollections() {
+    return this.makeGETRequest("/api/collections", "null");
+  }
+
+  handleFetchForeignTables() {
+    return this.makeGETRequest("/api/foreignTables", "null");
+  }
+
+  handleFetchLastInventoryNumber(codePrefix) {
+    return this.makeGETRequest(
+      `/api/lastInventoryNumber/${codePrefix}`,
+      "null"
+    );
   }
 
   // Helpers functions
@@ -223,13 +332,16 @@ class IPCHandlers {
       throw error;
     }
   }
-  makeGETRequest(path) {
+  makeGETRequest(path, token) {
     return new Promise((resolve, reject) => {
       const request = net.request({
         method: "GET",
         protocol: "http:",
         hostname: "alu.test",
         path,
+        headers: {
+          Authorization: token,
+        },
       });
 
       let responseData = "";
@@ -247,6 +359,7 @@ class IPCHandlers {
               headers: response.headers,
               status: parsedData.status,
               data: parsedData.data,
+              message: parsedData.message,
             });
           } catch (error) {
             console.error("[NET] JSON parse error:", error);

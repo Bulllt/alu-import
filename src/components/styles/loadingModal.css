@@ -1,0 +1,130 @@
+.loadingModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.loadingModalContent {
+  background-color: var(--background);
+  border-radius: 12px;
+  padding: 2rem;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: var(--card-shadow-hover);
+  border: 1px solid var(--secondary-color);
+}
+
+.loadingModalHeader h2 {
+  color: var(--text-color);
+  margin: 0 0 1.5rem 0;
+  text-align: center;
+  font-size: 1.4rem;
+}
+
+.loadingModalBody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.loadingSpinner {
+  color: var(--accent-color);
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.progressContainer {
+  width: 100%;
+  height: 8px;
+  background-color: var(--tertiary-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--accent-color) 0%,
+    #4df1d8 50%,
+    var(--accent-color) 100%
+  );
+  border-radius: 4px;
+  transition: width 0.3s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.progressBar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer 2s infinite;
+}
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.progressText {
+  color: var(--text-color);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.progressBar.complete {
+  background: var(--accent-color);
+  animation: pulse 0.5s ease-in-out 2;
+}
+
+.loadingSpinner.completeSpin {
+  color: var(--accent-color);
+  animation: none;
+}
+
+.progressText .checkmark {
+  color: var(--accent-color);
+  font-weight: bold;
+  margin-left: 5px;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

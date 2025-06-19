@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 
 import "./styles/imagePreview.css";
-import { FaImage, FaSpinner } from "react-icons/fa";
+import { FaImage, FaSpinner, FaMusic } from "react-icons/fa";
 
 export default function ImagePreview({ file }) {
   const [imageSrc, setImageSrc] = useState(null);
@@ -16,7 +16,7 @@ export default function ImagePreview({ file }) {
       try {
         setLoading(true);
         const src = await window.electronAPI.getImageThumbnail(file.path);
-        if (mounted) setImageSrc(src);
+        if (mounted) setImageSrc(src === "audio" ? "audio" : src);
       } catch (error) {
         console.error("Error loading image:", error);
       } finally {
@@ -43,12 +43,16 @@ export default function ImagePreview({ file }) {
 
   return (
     <div className="imagePreview" onClick={handleImageClick}>
-      {imageSrc ? (
-        <img src={imageSrc} alt="Preview" className="thumbnailImage" />
-      ) : (
+      {!imageSrc ? (
         <div className="imagePlaceholder">
           <FaImage className="placeholderIcon" />
         </div>
+      ) : imageSrc === "audio" ? (
+        <div className="imagePlaceholder">
+          <FaMusic className="audioIcon" />
+        </div>
+      ) : (
+        <img src={imageSrc} alt="Preview" className="thumbnailImage" />
       )}
     </div>
   );

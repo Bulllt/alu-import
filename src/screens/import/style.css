@@ -49,6 +49,12 @@
   }
 }
 
+.loadingModalContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 /* Table Styles */
 .table {
   width: 100%;

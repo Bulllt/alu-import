@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import Navbar from "../components/navbar.jsx";
+import RollbackButton from "../components/rollbackButton.jsx";
 import { Outlet, useLocation } from "react-router-dom";
 
 export default function Layout() {
@@ -24,6 +25,7 @@ export default function Layout() {
 
       <main>
         <Outlet />
+        {!location.pathname.startsWith("/import") && <RollbackButton />}
       </main>
     </>
   );

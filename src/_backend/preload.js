@@ -33,6 +33,19 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   openImage: (path) => ipcRenderer.invoke("open-image", path),
   getImageThumbnail: (path) => ipcRenderer.invoke("get-image-thumbnail", path),
+  importProcessedFiles: (files, collectionPath, fileType) =>
+    ipcRenderer.invoke(
+      "import-processed-files",
+      files,
+      collectionPath,
+      fileType
+    ),
+  onImportProgress: (callback) => {
+    ipcRenderer.on("import-progress", (_, progress) => callback(progress));
+    return () => ipcRenderer.removeAllListeners("import-progress");
+  },
+  hasLastImport: () => ipcRenderer.invoke("has-last-import"),
+  importRollback: () => ipcRenderer.invoke("import-rollback"),
 
   // API calls
   fetchCollections: () => ipcRenderer.invoke("fetch-collections"),
