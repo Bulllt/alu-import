@@ -25,6 +25,7 @@ export default function RollbackButton() {
         await window.electronAPI.importRollback();
         setConfirmStep(0);
       } catch (error) {
+        setIsVisible(true);
         console.error("Rollback failed:", error);
       }
     } else {

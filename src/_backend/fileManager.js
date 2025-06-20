@@ -1213,8 +1213,18 @@ class FileManager {
     const nas2400Files = await fs.readdir(this.nas2400);
     for (const file of nas2400Files) {
       const parts = file.split("_");
+
       if (parts[0] === prefix && parts[1] >= baseNumber) {
-        await fs.remove(path.join(this.nas2400, file));
+        try {
+          await fs.remove(path.join(this.nas2400, file));
+        } catch (error) {
+          console.error("cleanLastImport error:", error);
+          await this.sendStatusToRenderer(
+            "error",
+            `El archivo ${file} está abierto. Ciérralo para evitar errores.`
+          );
+          throw error;
+        }
       }
     }
 
@@ -1224,7 +1234,16 @@ class FileManager {
       const parts = fileOrFolder.split("_");
 
       if (parts[0] === prefix && parts[1] >= baseNumber) {
-        await fs.remove(fullPath);
+        try {
+          await fs.remove(fullPath);
+        } catch (error) {
+          console.error("cleanLastImport error:", error);
+          await this.sendStatusToRenderer(
+            "error",
+            `El archivo ${file} está abierto. Ciérralo para evitar errores.`
+          );
+          throw error;
+        }
       }
     }
 
@@ -1232,9 +1251,18 @@ class FileManager {
     const destinationFolder = path.join(selectedPath, type, prefix);
     await fs.ensureDir(destinationFolder);
 
-    await fs.move(sourceFolder, path.join(destinationFolder, collection), {
-      overwrite: true,
-    });
+    try {
+      await fs.move(sourceFolder, path.join(destinationFolder, collection), {
+        overwrite: true,
+      });
+    } catch (error) {
+      console.error("cleanLastImport error:", error);
+      await this.sendStatusToRenderer(
+        "error",
+        `Cierra los archivos dentro de la carpeta ${collection} dentro de buzon_importados`
+      );
+      throw error;
+    }
   }
 
   cleanup() {
