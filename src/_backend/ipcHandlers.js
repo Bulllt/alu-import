@@ -1,10 +1,12 @@
 const FileManager = require("./fileManager");
-const { ipcMain, dialog, net, shell } = require("electron");
+const { ipcMain, dialog, net, shell, app } = require("electron");
 const path = require("path");
 const fs = require("fs-extra");
-const sharp = require("sharp");
+const { execSync } = require("child_process");
 const crypto = require("crypto");
-require("dotenv").config();
+require("dotenv").config({
+  path: path.join(process.resourcesPath, ".env"),
+});
 const ffmpeg = require("fluent-ffmpeg");
 
 class IPCHandlers {
@@ -98,6 +100,7 @@ class IPCHandlers {
       const config = this.readConfig();
       config.folderPath = folderPath;
       this.writeConfig(config);
+      this.fileManager.initializePath();
       this.sendStatusToRenderer("success", "Carpeta guardada correctamente");
       return true;
     } catch (error) {
@@ -251,12 +254,9 @@ class IPCHandlers {
       }
 
       if (videoExtensions.includes(ext)) {
-        const tempDir = path.join(__dirname, "alu-thumbnails");
+        const tempDir = path.join(app.getPath("temp"), "alu-thumbnails");
         await fs.ensureDir(tempDir);
-        const thumbnailFilename = `${path.basename(
-          filePath,
-          ext
-        )}-${Date.now()}.png`;
+        const thumbnailFilename = `${path.basename(filePath, ext)}.png`;
         const thumbnailPath = path.join(tempDir, thumbnailFilename);
 
         await new Promise((resolve, reject) => {
@@ -277,10 +277,23 @@ class IPCHandlers {
         return `data:image/png;base64,${thumbBuffer.toString("base64")}`;
       }
 
-      const buffer = await sharp(filePath)
-        .resize(100, 100, { fit: "inside" })
-        .toBuffer();
-      return `data:image/png;base64,${buffer.toString("base64")}`;
+      const tempDir = path.join(app.getPath("temp"), "alu-thumbnails");
+      await fs.ensureDir(tempDir);
+      const thumbnailFilename = `${path.basename(filePath, ext)}.png`;
+      const thumbnailPath = path.join(tempDir, thumbnailFilename);
+
+      const command = [
+        "magick convert",
+        `"${filePath}"`,
+        "-resize 100x100^>",
+        `"${thumbnailPath}"`,
+      ].join(" ");
+
+      execSync(command, { stdio: "pipe" });
+      const thumbBuffer = await fs.readFile(thumbnailPath);
+      await fs.remove(thumbnailPath);
+
+      return `data:image/png;base64,${thumbBuffer.toString("base64")}`;
     } catch (error) {
       console.error("Error generating thumbnail:", error);
       return null;

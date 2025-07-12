@@ -1,15 +1,25 @@
 const { FusesPlugin } = require("@electron-forge/plugin-fuses");
 const { FuseV1Options, FuseVersion } = require("@electron/fuses");
+const path = require("path");
 
 module.exports = {
   packagerConfig: {
     asar: true,
+    icon: "./src/assets/icon",
+    extraResource: [
+      path.resolve(__dirname, ".env"),
+      path.resolve(__dirname, "src", "assets", "watermark.png"),
+    ],
   },
   rebuildConfig: {},
   makers: [
     {
       name: "@electron-forge/maker-squirrel",
-      config: {},
+      config: {
+        iconUrl:
+          "https://drive.google.com/file/d/1YiuJ1t4Rpr8pR1t-7vcMLMqYvH3gtdoZ/view?usp=drive_link",
+        setupIcon: "./src/assets/icon.ico",
+      },
     },
     {
       name: "@electron-forge/maker-zip",
@@ -17,11 +27,21 @@ module.exports = {
     },
     {
       name: "@electron-forge/maker-deb",
-      config: {},
+      config: {
+        options: {
+          icon: "./src/assets/icon.png",
+        },
+      },
     },
     {
       name: "@electron-forge/maker-rpm",
       config: {},
+    },
+    {
+      name: "@electron-forge/maker-dmg",
+      config: {
+        icon: "./src/assets/icon.icns",
+      },
     },
   ],
   plugins: [

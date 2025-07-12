@@ -23,6 +23,7 @@ const createWindow = () => {
       contextIsolation: true,
     },
     autoHideMenuBar: true,
+    icon: "../assets/icon.png",
   });
 
   mainWindowState.manage(mainWindow);

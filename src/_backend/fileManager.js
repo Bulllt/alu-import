@@ -2,7 +2,9 @@ const fs = require("fs-extra");
 const path = require("path");
 const chokidar = require("chokidar");
 const { net } = require("electron");
-require("dotenv").config();
+require("dotenv").config({
+  path: path.join(process.resourcesPath, ".env"),
+});
 const crypto = require("crypto");
 const { OpenAI } = require("openai");
 const ffmpeg = require("fluent-ffmpeg");
@@ -26,16 +28,14 @@ class FileManager {
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    this.baseDir = path.dirname(this.getRootPath());
-    this.lastImported = path.join(this.baseDir, "buzon_importados");
-    fs.ensureDirSync(this.lastImported);
+    this.baseDir = null;
+    this.lastImported = null;
+    this.nasOriginal = null;
+    this.nas2400 = null;
+    this.initializePath();
 
-    //this.nasOriginal = "\\\\PCALONSO\\original";
-    //this.nas2400 = "\\\\PCALONSO\\2400px";
-    this.nasOriginal = path.join(this.baseDir, "original");
-    this.nas2400 = path.join(this.baseDir, "2400px");
-    fs.ensureDirSync(this.nasOriginal);
-    fs.ensureDirSync(this.nas2400);
+    //this.nasOriginal = "\\\\Nasarchivo\\archivo\\2400px\\DC\\archivos";
+    //this.nas2400 = "\\\\Nasarchivo\\archivo\\original\\DC\\archivos";
   }
 
   // Helper functions
@@ -49,9 +49,19 @@ class FileManager {
   writeConfig(config) {
     fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2));
   }
-  getRootPath() {
+  initializePath() {
     const config = this.readConfig();
-    return config.folderPath;
+
+    if (!config.folderPath) return;
+
+    this.baseDir = path.dirname(config.folderPath);
+    this.lastImported = path.join(this.baseDir, "buzon_importados");
+    fs.ensureDirSync(this.lastImported);
+
+    this.nasOriginal = path.join(this.baseDir, "original");
+    this.nas2400 = path.join(this.baseDir, "2400px");
+    fs.ensureDirSync(this.nasOriginal);
+    fs.ensureDirSync(this.nas2400);
   }
 
   initializeCodePrefix(collectionPath) {
@@ -415,8 +425,7 @@ class FileManager {
         const fileParts = path.basename(file, path.extname(file)).split("_");
         return fileParts[0] === prefix && fileParts[1] >= baseNumber;
       });
-      //const aiResults = await this.generateAIDescriptions(imageFiles);
-      const aiResults = "hola";
+      const aiResults = await this.generateAIDescriptions(imageFiles);
 
       // Update files with AI descriptions
       const updatedFiles = files.map((file, index) => ({
@@ -637,14 +646,7 @@ class FileManager {
     }
   }
   async processAndConvertMovies(files, progressCallback) {
-    const watermarkPath = path.join(
-      __dirname,
-      "..",
-      "..",
-      "src",
-      "assets",
-      "logo.png"
-    );
+    const watermarkPath = path.join(process.resourcesPath, "watermark.png");
 
     const totalFiles = files.length;
     let processedFiles = 0;
