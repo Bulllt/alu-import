@@ -56,6 +56,7 @@ export default function SelectCollection() {
     loadCollections();
     fetchCollectionsDB();
   }, []);
+
   const refresh = () => {
     loadCollections();
     fetchCollectionsDB();
@@ -80,6 +81,9 @@ export default function SelectCollection() {
   };
 
   const handleCollectionSelect = async (collectionPath) => {
+    const pathLength = collectionPath.split("\\").length;
+    const collectionType = collectionPath.split("\\")[pathLength - 3];
+
     try {
       localStorage.setItem("selectedCollection", true);
 
@@ -87,6 +91,7 @@ export default function SelectCollection() {
         state: {
           collectionPath,
           dbCollectionId: selectedCollectionDB.id,
+          collectionType,
         },
       });
     } catch (error) {

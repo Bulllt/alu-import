@@ -7,10 +7,10 @@ require("dotenv").config({
 });
 const crypto = require("crypto");
 const { OpenAI } = require("openai");
+const { createClient } = require("@deepgram/sdk");
 const ffmpeg = require("fluent-ffmpeg");
 const { execSync } = require("child_process");
 const { PDFDocument } = require("pdf-lib");
-const os = require("os");
 
 class FileManager {
   constructor(sendStatusToRenderer, configPath) {
@@ -27,6 +27,8 @@ class FileManager {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
+
+    this.deepgram = createClient(process.env.DEEPGRAM_API_KEY);
 
     this.baseDir = null;
     this.lastImported = null;
@@ -46,9 +48,11 @@ class FileManager {
       return { folderPath: null };
     }
   }
+
   writeConfig(config) {
     fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2));
   }
+
   initializePath() {
     const config = this.readConfig();
 
@@ -72,26 +76,27 @@ class FileManager {
     this.lastInventoryNumber = config.inventoryNumber;
   }
 
+  // Process of collections and files
   async createWatcher(rootFolderPath) {
     try {
       this.watchers.forEach((watcher) => watcher.close());
       this.watchers.clear();
       this.pendingCollections = [];
 
-      const fileTypes = await fs.promises.readdir(rootFolderPath);
+      const fileTypes = await fs.readdir(rootFolderPath);
       for (const fileType of fileTypes) {
         const fileTypePath = path.join(rootFolderPath, fileType);
-        if (!(await fs.promises.stat(fileTypePath)).isDirectory()) continue;
+        if (!(await fs.stat(fileTypePath)).isDirectory()) continue;
 
-        const codeFolders = await fs.promises.readdir(fileTypePath);
+        const codeFolders = await fs.readdir(fileTypePath);
         for (const codeFolder of codeFolders) {
           const codePath = path.join(fileTypePath, codeFolder);
-          if (!(await fs.promises.stat(codePath)).isDirectory()) continue;
+          if (!(await fs.stat(codePath)).isDirectory()) continue;
 
-          const collectionFolders = await fs.promises.readdir(codePath);
+          const collectionFolders = await fs.readdir(codePath);
           for (const collectionFolder of collectionFolders) {
             const collectionPath = path.join(codePath, collectionFolder);
-            if ((await fs.promises.stat(collectionPath)).isDirectory()) {
+            if ((await fs.stat(collectionPath)).isDirectory()) {
               this.pendingCollections.push({
                 path: collectionPath,
                 code: codeFolder,
@@ -157,15 +162,30 @@ class FileManager {
       return false;
     }
   }
+
   async processCollection(collectionPath) {
     try {
       await this.initializeCodePrefix(collectionPath);
-      const items = await fs.promises.readdir(collectionPath);
+      const items = await fs.readdir(collectionPath);
       const processedItems = [];
 
+      const csvFile = items.find(
+        (item) => path.extname(item).toLowerCase() === ".csv"
+      );
+      if (csvFile) {
+        const csvPath = path.join(collectionPath, csvFile);
+        const csvData = await this.parseCSVFile(csvPath);
+
+        if (csvData && this.mainWindow) {
+          this.mainWindow.webContents.send("csv-file", csvData);
+        }
+      }
+
       for (const item of items) {
+        if (path.extname(item).toLowerCase() === ".csv") continue;
+
         const itemPath = path.join(collectionPath, item);
-        const stats = await fs.promises.stat(itemPath);
+        const stats = await fs.stat(itemPath);
 
         let result;
         if (stats.isDirectory()) {
@@ -190,6 +210,39 @@ class FileManager {
         "Error al procesar (processCollection)"
       );
       throw error;
+    }
+  }
+
+  async parseCSVFile(filePath) {
+    try {
+      const fileContent = await fs.readFile(filePath, "utf8");
+      const lines = fileContent.split("\n");
+      if (lines.length < 2) return null;
+
+      const headers = lines[0].split(",").map((h) => h.trim());
+      const data = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+
+        const values = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+        const row = {};
+
+        headers.forEach((header, index) => {
+          let value = values[index] || "";
+          if (value.startsWith('"') && value.endsWith('"')) {
+            value = value.slice(1, -1);
+          }
+          row[header] = value.trim();
+        });
+
+        data.push(row);
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Error parsing CSV file:", error);
+      return null;
     }
   }
 
@@ -220,7 +273,7 @@ class FileManager {
     });
 
     try {
-      await fs.promises.rename(filePath, newFilePath);
+      await fs.rename(filePath, newFilePath);
       this.sendStatusToRenderer("success", `Se proceso el archivo ${fileName}`);
 
       return {
@@ -234,6 +287,7 @@ class FileManager {
       return null;
     }
   }
+
   async processFolder(folderPath) {
     const folderName = path.basename(folderPath);
     const collectionPath = path.dirname(folderPath);
@@ -258,7 +312,7 @@ class FileManager {
 
     try {
       await this.retryFolderRename(folderPath, newFolderPath);
-      const files = await fs.promises.readdir(newFolderPath);
+      const files = await fs.readdir(newFolderPath);
       const processedFiles = [];
 
       for (let i = 0; i < files.length; i++) {
@@ -277,7 +331,7 @@ class FileManager {
           isDirectory: false,
         });
 
-        await fs.promises.rename(filePath, newFilePath);
+        await fs.rename(filePath, newFilePath);
 
         processedFiles.push({
           newName: newFileName,
@@ -298,10 +352,11 @@ class FileManager {
       return null;
     }
   }
+
   async retryFolderRename(oldPath, newPath, attempts = 3, delay = 300) {
     for (let i = 0; i < attempts; i++) {
       try {
-        await fs.promises.rename(oldPath, newPath);
+        await fs.rename(oldPath, newPath);
         return;
       } catch (error) {
         if (i === attempts - 1) throw error;
@@ -346,7 +401,7 @@ class FileManager {
             item.originalName
           );
 
-          await fs.promises.mkdir(path.dirname(originalPath), {
+          await fs.mkdir(path.dirname(originalPath), {
             recursive: true,
           });
         } else {
@@ -355,7 +410,7 @@ class FileManager {
         }
 
         if (fs.existsSync(currentPath)) {
-          await fs.promises.rename(currentPath, originalPath);
+          await fs.rename(currentPath, originalPath);
         }
       } catch (error) {
         console.error(`Rollback failed for ${item.currentName}:`, error);
@@ -367,9 +422,9 @@ class FileManager {
         const currentPath = path.join(collectionPath, item.currentName);
 
         if (fs.existsSync(currentPath)) {
-          const dirContents = await fs.promises.readdir(currentPath);
+          const dirContents = await fs.readdir(currentPath);
           if (dirContents.length === 0) {
-            await fs.promises.rmdir(currentPath);
+            await fs.rmdir(currentPath);
           }
         }
       } catch (error) {
@@ -383,6 +438,7 @@ class FileManager {
     this.originalNames.delete(collectionPath);
   }
 
+  // IMAGE PROCESS SECTION
   async processImageImport(files, collectionPath) {
     const lastInventoryCode = `${files[0].code}_${files[0].n_object}_${files[0].n_ic}`;
     const lastCollection = path.basename(collectionPath);
@@ -430,8 +486,8 @@ class FileManager {
       // Update files with AI descriptions
       const updatedFiles = files.map((file, index) => ({
         ...file,
-        description: aiResults[index]?.description || "",
-        elements: aiResults[index]?.elements || "",
+        ai_description: aiResults[index]?.description || "",
+        ai_elements: aiResults[index]?.elements || "",
         path: null,
       }));
       updateProgress(90);
@@ -455,8 +511,17 @@ class FileManager {
       const filePath = file.path;
       const ext = path.extname(filePath).toLowerCase();
       const fileName = path.basename(filePath, ext);
-      const nasOriginalPath = path.join(this.nasOriginal, `${fileName}${ext}`);
-      const nas2400Path = path.join(this.nas2400, `${fileName}.jpg`);
+      const prefix = fileName.split("_")[0];
+
+      fs.ensureDirSync(path.join(this.nasOriginal, prefix));
+      fs.ensureDirSync(path.join(this.nas2400, prefix));
+
+      const nasOriginalPath = path.join(
+        this.nasOriginal,
+        prefix,
+        `${fileName}${ext}`
+      );
+      const nas2400Path = path.join(this.nas2400, prefix, `${fileName}.jpg`);
 
       await fs.copy(filePath, nasOriginalPath);
 
@@ -487,6 +552,7 @@ class FileManager {
       }
     }
   }
+
   async generateAIDescriptions(imageFiles) {
     const results = [];
     const prompt = `Necesito dos textos del contenido de esta fotografía que es parte de nuestro archivo histórico:
@@ -556,6 +622,7 @@ class FileManager {
     return results;
   }
 
+  // MOVIE PROCESS SECTION
   async processMovieImport(files, collectionPath) {
     const lastInventoryCode = `${files[0].code}_${files[0].n_object}_${files[0].n_ic}`;
     const lastCollection = path.basename(collectionPath);
@@ -599,19 +666,23 @@ class FileManager {
       return true;
     } catch (error) {
       updateProgress(100);
-      console.error("Error processing movies:", error);
+      console.error("Error inside processMovieImport:", error);
       throw error;
     }
   }
+
   async convertToMovAndBackup(files, collectionPath, progressCallback) {
     const collectionFolderName = path.basename(collectionPath);
     const [codePrefix, rest] = collectionFolderName.split("_");
     const moviesPath = path.join(this.lastImported, "peliculas", codePrefix);
     const destinationFolder = path.join(moviesPath, collectionFolderName);
-    await fs.ensureDir(destinationFolder);
+
+    fs.ensureDirSync(path.join(this.nasOriginal, codePrefix));
+    fs.ensureDirSync(destinationFolder);
 
     const totalFiles = files.length;
     let processedFiles = 0;
+
     for (const file of files) {
       processedFiles++;
       const currentProgress = processedFiles / totalFiles;
@@ -622,7 +693,11 @@ class FileManager {
       const baseName = path.basename(inputPath, ext);
       const outputFilename = `${collectionFolderName}-file${processedFiles}.mov`;
       const importedPath = path.join(destinationFolder, outputFilename);
-      const nasOriginalPath = path.join(this.nasOriginal, `${baseName}.mov`);
+      const nasOriginalPath = path.join(
+        this.nasOriginal,
+        codePrefix,
+        `${baseName}.mov`
+      );
 
       if (ext !== ".mov") {
         await new Promise((resolve, reject) => {
@@ -645,26 +720,32 @@ class FileManager {
       progressCallback(currentProgress);
     }
   }
+
   async processAndConvertMovies(files, progressCallback) {
     const watermarkPath = path.join(process.resourcesPath, "watermark.png");
 
     const totalFiles = files.length;
     let processedFiles = 0;
+
     for (const file of files) {
       processedFiles++;
       const currentProgress = processedFiles / totalFiles;
       progressCallback(currentProgress * 0.7);
 
-      const inputPath = file.path;
-      const outputPath = path.join(
-        this.nas2400,
-        `${path.basename(inputPath, path.extname(inputPath))}.mp4`
-      );
+      const filePath = file.path;
+      const ext = path.extname(filePath).toLowerCase();
+      const fileName = path.basename(filePath, ext);
+      const prefix = fileName.split("_")[0];
+
+      fs.ensureDirSync(path.join(this.nasOriginal, prefix));
+      fs.ensureDirSync(path.join(this.nas2400, prefix));
+
+      const outputPath = path.join(this.nas2400, prefix, `${fileName}.mp4`);
 
       try {
         await new Promise((resolve, reject) => {
           ffmpeg()
-            .input(inputPath)
+            .input(filePath)
             .input(watermarkPath)
             .complexFilter(
               [
@@ -700,7 +781,7 @@ class FileManager {
             .on("end", resolve)
             .on("error", (err) => {
               console.error(
-                `Error processing ${path.basename(inputPath)}:`,
+                `Error processing ${path.basename(filePath)}:`,
                 err
               );
               reject(err);
@@ -715,6 +796,7 @@ class FileManager {
     }
   }
 
+  // AUDIO PROCESS SECTION
   async processAudioImport(files, collectionPath) {
     const lastInventoryCode = `${files[0].code}_${files[0].n_object}_${files[0].n_ic}`;
     const lastCollection = path.basename(collectionPath);
@@ -761,26 +843,36 @@ class FileManager {
       return true;
     } catch (error) {
       updateProgress(100);
-      console.error("Error inside processImageImport:", error);
+      console.error("Error inside processAudioImport:", error);
       throw error;
     }
   }
+
   async processAndConvertAudios(files, progressCallback) {
     const totalFiles = files.length;
     let processedFiles = 0;
 
     for (const file of files) {
-      const inputPath = file.path;
-      const ext = path.extname(inputPath);
-      const basename = path.basename(inputPath, ext);
-      const nas2400Path = path.join(this.nas2400, `${basename}.ogg`);
-      const nasOriginalPath = path.join(this.nasOriginal, `${basename}${ext}`);
+      const filePath = file.path;
+      const ext = path.extname(filePath);
+      const fileName = path.basename(filePath, ext);
+      const prefix = fileName.split("_")[0];
 
-      await fs.copy(inputPath, nasOriginalPath);
+      fs.ensureDirSync(path.join(this.nas2400, prefix));
+      fs.ensureDirSync(path.join(this.nasOriginal, prefix));
+
+      const nas2400Path = path.join(this.nas2400, prefix, `${fileName}.ogg`);
+      const nasOriginalPath = path.join(
+        this.nasOriginal,
+        prefix,
+        `${fileName}${ext}`
+      );
+
+      await fs.copy(filePath, nasOriginalPath);
       progressCallback((processedFiles + 0.1) / totalFiles);
 
       await new Promise((resolve, reject) => {
-        ffmpeg(inputPath)
+        ffmpeg(filePath)
           .audioCodec("libopus")
           .audioBitrate("96k")
           .output(nas2400Path)
@@ -789,32 +881,70 @@ class FileManager {
           .run();
       });
 
-      const vttPath = path.join(this.nas2400, `${basename}.vtt`);
-      await this.generateAudioTranscription(inputPath, vttPath);
+      const vttPath = path.join(this.nas2400, prefix, `${fileName}.vtt`);
+      await this.generateAudioTranscription(filePath, vttPath);
 
       progressCallback((processedFiles + 0.8) / totalFiles);
       processedFiles++;
       progressCallback(processedFiles / totalFiles);
     }
   }
+
   async generateAudioTranscription(audioPath, vttPath) {
     try {
-      const fileStream = fs.createReadStream(audioPath);
-      const transcription = await this.openai.audio.transcriptions.create({
-        file: fileStream,
-        model: "whisper-1",
-        response_format: "vtt",
-        language: "es",
-        temperature: 0.2,
-      });
+      const audioFile = fs.readFileSync(audioPath);
 
-      await fs.promises.writeFile(vttPath, transcription);
+      const { result, error } =
+        await this.deepgram.listen.prerecorded.transcribeFile(audioFile, {
+          model: "nova-2",
+          language: "es",
+          punctuate: true,
+          diarize: true,
+          smart_format: true,
+        });
+
+      if (error) {
+        console.error("Deepgram error:", error);
+        throw error;
+      }
+
+      const vttContent = this.formatDeepgramToVtt(result);
+
+      await fs.writeFile(vttPath, vttContent);
     } catch (error) {
-      console.error("Error in audio transcription:", error);
+      console.error("Deepgram transcription error:", error);
       throw error;
     }
   }
 
+  formatDeepgramToVtt(transcription) {
+    let vttContent = "WEBVTT\n\n";
+
+    transcription.results.channels[0].alternatives[0].words.forEach(
+      (word, index) => {
+        if (
+          index === 0 ||
+          word.speaker !==
+            transcription.results.channels[0].alternatives[0].words[index - 1]
+              .speaker
+        ) {
+          vttContent += `\n${word.speaker}:\n`;
+        }
+
+        const startTime = new Date(word.start * 1000)
+          .toISOString()
+          .slice(11, 23);
+        const endTime = new Date(word.end * 1000).toISOString().slice(11, 23);
+
+        vttContent += `${startTime} --> ${endTime}\n`;
+        vttContent += `${word.punctuated_word || word.word}\n\n`;
+      }
+    );
+
+    return vttContent;
+  }
+
+  // DOCUMENT PROCESS SECTION
   async processDocumentImport(files, collectionPath) {
     const lastInventoryCode = `${files[0].code}_${files[0].n_object}_${files[0].n_ic}`;
     const lastCollection = path.basename(collectionPath);
@@ -875,18 +1005,12 @@ class FileManager {
 
         if (/^\d+$/.test(isInventoryNumber) && !isInCollectionRoot) {
           if (!processedFolders.has(documentPath)) {
-            await this.processMultiPageDocument(
-              documentPath,
-              documentFolder,
-              (folderProgress) => {
-                const fileProgress = processedFiles / totalFiles;
-                const folderWeight = 1 / totalFiles;
-                const currentProgress =
-                  fileProgress + folderProgress * folderWeight;
-                progressCallback(currentProgress * 0.8);
-              }
-            );
+            const filesInsideFolder = await fs.readdir(documentPath);
+
+            await this.processMultiPageDocument(documentPath, documentFolder);
             processedFolders.add(documentPath);
+            processedFiles += filesInsideFolder.length;
+            progressCallback((processedFiles / totalFiles) * 0.8);
           }
         } else {
           await this.processSinglePageDocument(file);
@@ -899,158 +1023,117 @@ class FileManager {
       }
     }
   }
-  async processMultiPageDocument(documentPath, documentBase, progressCallback) {
+
+  async processMultiPageDocument(documentPath, documentBase) {
     const imageFiles = await fs.readdir(documentPath);
+    const prefix = documentBase.split("_")[0];
     const totalPages = imageFiles.length;
-    let completedPages = 0;
 
-    const documentFolderTemp = path.join(this.lastImported, documentBase);
-    await fs.mkdir(documentFolderTemp, { recursive: true });
+    fs.ensureDirSync(path.join(this.nasOriginal, prefix));
+    fs.ensureDirSync(path.join(this.nas2400, prefix));
 
-    const documentFolderNAS = path.join(this.nasOriginal, documentBase);
-    await fs.mkdir(documentFolderNAS, { recursive: true });
-
-    const pdfPagesStandard = [];
-    const pdfPagesCompressed = [];
-    const allTextContent = {};
+    const pdfPages = [];
+    const textContents = {};
 
     for (let i = 0; i < imageFiles.length; i++) {
       const imagePath = path.join(documentPath, imageFiles[i]);
-      progressCallback((completedPages / totalPages) * 0.6);
 
-      const {
-        pdfPath: stdPdfPath,
-        txtPath,
-        textContent,
-      } = await this.processImageWithOCR(imagePath, "txt");
-
-      const newStdPdfPath = path.join(
-        documentFolderNAS,
-        path.basename(stdPdfPath)
+      const { pdfPath, textContent } = await this.processImageWithOCR(
+        imagePath
       );
-
-      await fs.move(stdPdfPath, newStdPdfPath);
-
-      const newTxtPath = path.join(documentFolderNAS, path.basename(txtPath));
-      await fs.move(txtPath, newTxtPath);
-
-      progressCallback(((completedPages + 0.3) / totalPages) * 0.6);
-      const processedImage = await this.create2400file(imagePath, "document");
-      const { pdfPath: compPdfPath } = await this.processImageWithOCR(
-        processedImage,
-        "noTxt"
-      );
-
-      const newCompPdfPath = path.join(
-        documentFolderTemp,
-        path.basename(compPdfPath)
-      );
-
-      await fs.move(compPdfPath, newCompPdfPath);
-      await fs.remove(processedImage);
-
-      pdfPagesStandard.push(newStdPdfPath);
-      pdfPagesCompressed.push(newCompPdfPath);
-      allTextContent[`page${i + 1}`] = textContent;
-
-      completedPages++;
-      progressCallback((completedPages / totalPages) * 0.6);
+      pdfPages.push(pdfPath);
+      textContents[`page${i + 1}`] = textContent;
     }
-    progressCallback(0.6);
 
-    const mergedStdPdfPath = path.join(os.tmpdir(), `${documentBase}_std.pdf`);
-    await this.mergePDFs(pdfPagesStandard, mergedStdPdfPath);
-    await fs.copy(
-      mergedStdPdfPath,
-      path.join(this.nasOriginal, `${documentBase}.pdf`)
+    const originalPdfPath = path.join(
+      this.nasOriginal,
+      prefix,
+      `${documentBase}.pdf`
     );
-    await fs.unlink(mergedStdPdfPath);
-    progressCallback(0.7);
+    const compressedPdfPath = path.join(
+      this.nas2400,
+      prefix,
+      `${documentBase}.pdf`
+    );
+    const jsonPath = path.join(this.nas2400, prefix, `${documentBase}.json`);
 
-    const mergedCompPdfPath = path.join(
-      os.tmpdir(),
-      `${documentBase}_comp.pdf`
-    );
-    await this.mergePDFs(pdfPagesCompressed, mergedCompPdfPath);
-    await fs.copy(
-      mergedCompPdfPath,
-      path.join(this.nas2400, `${documentBase}.pdf`)
-    );
-    await fs.unlink(mergedCompPdfPath);
-    await fs.remove(documentFolderTemp);
-    progressCallback(0.9);
+    await this.mergePDFs(pdfPages, originalPdfPath);
 
-    const jsonPath = path.join(this.nas2400, `${documentBase}.json`);
-    await this.createTextJSON(allTextContent, jsonPath);
-    progressCallback(1.0);
+    await this.compressPdfWithGhostscript(originalPdfPath, compressedPdfPath);
+
+    await this.createTextJSON(textContents, jsonPath);
+
+    await Promise.all(pdfPages.map((page) => fs.remove(page)));
   }
+
   async processSinglePageDocument(file) {
-    const documentBase = `${file.code}_${file.n_object}`;
+    try {
+      const documentBase = `${file.code}_${file.n_object}`;
+      const prefix = `${file.code}`;
+      fs.ensureDirSync(path.join(this.nasOriginal, prefix));
+      fs.ensureDirSync(path.join(this.nas2400, prefix));
 
-    const {
-      pdfPath: stdPdfPath,
-      txtPath,
-      textContent,
-    } = await this.processImageWithOCR(file.path, "txt");
-    const stdFinalPath = path.join(this.nasOriginal, `${documentBase}.pdf`);
-    await fs.move(stdPdfPath, stdFinalPath);
+      const originalPdfPath = path.join(
+        this.nasOriginal,
+        prefix,
+        `${documentBase}.pdf`
+      );
+      const compressedPdfPath = path.join(
+        this.nas2400,
+        prefix,
+        `${documentBase}.pdf`
+      );
+      const jsonPath = path.join(this.nas2400, prefix, `${documentBase}.json`);
 
-    const newTxtPath = path.join(this.nasOriginal, `${documentBase}.txt`);
-    await fs.move(txtPath, newTxtPath);
+      const { pdfPath, textContent } = await this.processImageWithOCR(
+        file.path
+      );
 
-    const processedImage = await this.create2400file(file.path, "document");
-    const { pdfPath: compPdfPath } = await this.processImageWithOCR(
-      processedImage,
-      "noTxt"
-    );
+      await fs.move(pdfPath, originalPdfPath);
 
-    const compFinalPath = path.join(this.nas2400, `${documentBase}.pdf`);
-    await fs.move(compPdfPath, compFinalPath);
-    await fs.remove(processedImage);
+      await this.compressPdfWithGhostscript(originalPdfPath, compressedPdfPath);
 
-    const jsonPath = path.join(this.nas2400, `${documentBase}.json`);
-    await this.createTextJSON({ page1: textContent }, jsonPath);
+      await this.createTextJSON({ page1: textContent }, jsonPath);
+    } catch (error) {
+      console.error("Error inside processingSinglePageDocument", error);
+      throw error;
+    }
   }
 
-  async processImageWithOCR(imagePath, txt) {
+  async processImageWithOCR(imagePath) {
     const directory = path.dirname(imagePath);
     const baseName = path.basename(imagePath, path.extname(imagePath));
     const outputBase = path.join(directory, baseName);
 
-    let tesseractCommand = `tesseract "${imagePath}" "${outputBase}" -l spa`;
-    tesseractCommand += " -c tessedit_create_pdf=1";
-    tesseractCommand += " -c textonly_pdf=0";
-    tesseractCommand += " -c thresholding_window_size=0.1";
-    tesseractCommand += " -c user_defined_dpi=72";
-    tesseractCommand += " pdf";
-    if (txt === "txt") {
-      tesseractCommand += " txt";
-    }
+    const tesseractCommand = [
+      "tesseract",
+      `"${imagePath}"`,
+      `"${outputBase}"`,
+      "-l spa",
+      "-c tessedit_create_pdf=1",
+      "-c textonly_pdf=0",
+      "-c thresholding_window_size=0.1",
+      "-c user_defined_dpi=72",
+      "pdf txt",
+    ].join(" ");
 
     try {
       execSync(tesseractCommand, { stdio: "pipe" });
 
-      if (txt === "txt") {
-        let textContent = "";
-        try {
-          textContent = await fs.readFile(`${outputBase}.txt`, "utf8");
-          textContent = await this.normalizeText(textContent);
-        } catch (readError) {
-          console.warn(
-            `Could not read text file ${outputBase}.txt:`,
-            readError
-          );
-          textContent = "";
-        }
-
-        return {
-          pdfPath: `${outputBase}.pdf`,
-          txtPath: `${outputBase}.txt`,
-          textContent,
-        };
-      } else {
-        return { pdfPath: `${outputBase}.pdf` };
+      let textContent = "";
+      try {
+        textContent = await fs.readFile(`${outputBase}.txt`, "utf8");
+        textContent = await this.normalizeText(textContent);
+        await fs.remove(`${outputBase}.txt`);
+      } catch (readError) {
+        console.warn(`Could not read text file ${outputBase}.txt:`, readError);
+        textContent = "";
       }
+
+      return {
+        pdfPath: `${outputBase}.pdf`,
+        textContent,
+      };
     } catch (error) {
       console.error(`processImageWithOCR error ${imagePath}:`, error);
       throw new Error(`Failed to process image with OCR: ${imagePath}`);
@@ -1058,10 +1141,35 @@ class FileManager {
   }
 
   normalizeText(text) {
-    return text
-      .replace(/[^\x20-\x7E\u00C0-\u017F\u0100-\u024F]/g, "")
-      .replace(/\s+/g, " ")
+    let normalized = text
+      .replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9.,;:!?¡¿'\-_/°()$€£¥¢\s]/g, " ")
+      .replace(/\s{2,}/g, " ")
       .trim();
+
+    normalized = normalized.replace(/["]/g, "'");
+    return normalized;
+  }
+
+  async createTextJSON(textContent, outputPath) {
+    try {
+      const sortedEntries = Object.entries(textContent).sort(
+        (a, b) =>
+          parseInt(a[0].replace("page", "")) -
+          parseInt(b[0].replace("page", ""))
+      );
+
+      const jsonObject = {};
+      for (const [page, text] of sortedEntries) {
+        const formattedText = text.replace(/\n/g, "");
+        jsonObject[page] = formattedText;
+      }
+
+      const jsonContent = JSON.stringify(jsonObject, null, 2);
+      await fs.writeFile(outputPath, jsonContent, "utf8");
+    } catch (error) {
+      console.error("Error creating text JSON:", error);
+      throw new Error(`Failed to create text JSON: ${error.message}`);
+    }
   }
 
   async mergePDFs(pdfPaths, outputPath) {
@@ -1083,31 +1191,24 @@ class FileManager {
     }
   }
 
-  async createTextJSON(textContent, outputPath) {
+  async compressPdfWithGhostscript(inputPath, outputPath) {
+    const gsCommand = [
+      "gswin64c",
+      "-sDEVICE=pdfwrite",
+      "-dCompatibilityLevel=1.4",
+      "-dPDFSETTINGS=/ebook",
+      "-dNOPAUSE",
+      "-dBATCH",
+      "-dJPEGQ=85",
+      `-sOutputFile="${outputPath}"`,
+      `"${inputPath}"`,
+    ].join(" ");
+
     try {
-      const sortedEntries = Object.entries(textContent).sort(
-        (a, b) =>
-          parseInt(a[0].replace("page", "")) -
-          parseInt(b[0].replace("page", ""))
-      );
-
-      let jsonContent = "{\n";
-      for (const [page, text] of sortedEntries) {
-        const formattedText = text.replace(/\n/g, "\\n");
-        jsonContent += `  "${page}": "${formattedText}"`;
-
-        if (page !== sortedEntries[sortedEntries.length - 1][0]) {
-          jsonContent += ",";
-        }
-
-        jsonContent += "\n\n";
-      }
-      jsonContent += "}";
-
-      await fs.writeFile(outputPath, jsonContent, "utf8");
+      execSync(gsCommand, { stdio: "pipe" });
     } catch (error) {
-      console.error("Error creating text JSON:", error);
-      throw new Error(`Failed to create text JSON: ${error.message}`);
+      console.error(`Ghostscript compression failed for ${inputPath}:`, error);
+      throw new Error("PDF compression failed", error);
     }
   }
 
@@ -1122,6 +1223,7 @@ class FileManager {
 
     return `${timestamp}:${hmac}`;
   }
+
   async create2400file(imagePath, type) {
     if (type === "document") {
       const dir = path.dirname(imagePath);
@@ -1135,6 +1237,7 @@ class FileManager {
       return tempPath;
     }
   }
+
   async moveToImported(collectionPath) {
     const config = this.readConfig();
     const type = config.lastCollectionType;
@@ -1152,6 +1255,7 @@ class FileManager {
       }
     );
   }
+
   async sendToDatabase(files, token) {
     return new Promise((resolve, reject) => {
       const request = net.request({
@@ -1203,6 +1307,7 @@ class FileManager {
       request.end();
     });
   }
+
   async cleanLastImport() {
     const config = this.readConfig();
     if (!config.lastImportCode) return;
@@ -1211,14 +1316,16 @@ class FileManager {
     const [prefix, baseNumber] = config.lastImportCode.split("_");
     const collection = config.lastCollectionName;
     const type = config.lastCollectionType;
+    const nas2400Path = path.join(this.nas2400, prefix);
+    const nasOriginalPath = path.join(this.nasOriginal, prefix);
 
-    const nas2400Files = await fs.readdir(this.nas2400);
+    const nas2400Files = await fs.readdir(nas2400Path);
     for (const file of nas2400Files) {
       const parts = file.split("_");
 
       if (parts[0] === prefix && parts[1] >= baseNumber) {
         try {
-          await fs.remove(path.join(this.nas2400, file));
+          await fs.remove(path.join(nas2400Path, file));
         } catch (error) {
           console.error("cleanLastImport error:", error);
           await this.sendStatusToRenderer(
@@ -1230,14 +1337,13 @@ class FileManager {
       }
     }
 
-    const nasOriginalFiles = await fs.readdir(this.nasOriginal);
-    for (const fileOrFolder of nasOriginalFiles) {
-      const fullPath = path.join(this.nasOriginal, fileOrFolder);
-      const parts = fileOrFolder.split("_");
+    const nasOriginalFiles = await fs.readdir(nasOriginalPath);
+    for (const file of nasOriginalFiles) {
+      const parts = file.split("_");
 
       if (parts[0] === prefix && parts[1] >= baseNumber) {
         try {
-          await fs.remove(fullPath);
+          await fs.remove(path.join(nasOriginalPath, file));
         } catch (error) {
           console.error("cleanLastImport error:", error);
           await this.sendStatusToRenderer(

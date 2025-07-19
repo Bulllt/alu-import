@@ -6,10 +6,7 @@ module.exports = {
   packagerConfig: {
     asar: true,
     icon: "./src/assets/icon",
-    extraResource: [
-      path.resolve(__dirname, ".env"),
-      path.resolve(__dirname, "src", "assets", "watermark.png"),
-    ],
+    extraResource: [".env", "src/assets/watermark.png", "dist/worker"],
   },
   rebuildConfig: {},
   makers: [

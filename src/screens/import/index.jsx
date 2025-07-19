@@ -20,6 +20,7 @@ import {
   FaEdit,
   FaFileImport,
   FaSpinner,
+  FaArrowUp,
 } from "react-icons/fa";
 import "./style.css";
 
@@ -27,6 +28,7 @@ export default function Import() {
   const location = useLocation();
   const navigate = useNavigate();
   const [files, setFiles] = useState([]);
+  const [csvData, setCSVData] = useState(null);
   const [editingCell, setEditingCell] = useState(null);
   const [editValues, setEditValues] = useState({});
   const [filterText, setFilterText] = useState("");
@@ -38,6 +40,7 @@ export default function Import() {
   const [filesReadyToImport, setFilesReadyToImport] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingModalVisible, setLoadingModalVisible] = useState(false);
+  const [backToTopButtonVisible, setBackToTopButtonVisible] = useState(false);
 
   const hasStartedRef = useRef(false);
   const tableRef = useRef(null);
@@ -49,25 +52,17 @@ export default function Import() {
   const [currentSearchType, setCurrentSearchType] = useState("");
   const [foreignTablesData, setForeignTablesData] = useState({
     ubicacion_id: [],
-    techniques_id: [],
-    sizes_id: [],
     communes_id: [],
-    types_id: [],
-    locations_id: [],
     ubications_id: [],
   });
 
   const [importProgress, setImportProgress] = useState(0);
 
   // Column configuration
-  const columns = [
+  const [columns, setColumns] = useState([
     { id: "name", header: "Inventario", type: "text", editable: false },
-    {
-      id: "collection_id",
-      header: "Colección",
-      type: "text",
-      editable: false,
-    },
+    { id: "description", header: "Descripción", type: "text", editable: true },
+    { id: "elements", header: "Elementos", type: "chips", editable: true },
     {
       id: "date",
       header: "Fecha\u00A0\u00A0\u00A0\u00A0",
@@ -78,54 +73,32 @@ export default function Import() {
       id: "ubicacion_id",
       header: "Ubicación\u00A0 objeto",
       type: "select",
-      options: foreignTablesData.ubicacion_id,
-      editable: true,
-    },
-    {
-      id: "techniques_id",
-      header: "Técnica\u00A0\u00A0\u00A0\u00A0\u00A0",
-      type: "select",
-      options: foreignTablesData.techniques_id,
-      editable: true,
-    },
-    {
-      id: "sizes_id",
-      header: "Tamaño\u00A0\u00A0\u00A0\u00A0",
-      type: "select",
-      options: foreignTablesData.sizes_id,
+      options: [],
       editable: true,
     },
     {
       id: "communes_id",
       header: "Comuna\u00A0\u00A0\u00A0\u00A0",
       type: "select",
-      options: foreignTablesData.communes_id,
-      editable: true,
-    },
-    {
-      id: "types_id",
-      header: "Tipo\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0",
-      type: "select",
-      options: foreignTablesData.types_id,
-      editable: true,
-    },
-    {
-      id: "locations_id",
-      header: "Locación\u00A0\u00A0\u00A0",
-      type: "select",
-      options: foreignTablesData.locations_id,
+      options: [],
       editable: true,
     },
     {
       id: "ubications_id",
       header: "Ubicación\u00A0\u00A0\u00A0",
       type: "select",
-      options: foreignTablesData.ubications_id,
+      options: [],
       editable: true,
     },
     { id: "censored", header: "Censurado", type: "boolean", editable: true },
+    {
+      id: "censored_reason",
+      header: "Razón de censura",
+      type: "text",
+      editable: true,
+    },
     { id: "published", header: "Publicado", type: "boolean", editable: true },
-  ];
+  ]);
 
   const initialFiles = async () => {
     setIsLoading(true);
@@ -145,15 +118,7 @@ export default function Import() {
   const fetchForeignTablesDB = async () => {
     try {
       const response = await window.electronAPI.fetchForeignTables();
-      const [
-        ubicaciones,
-        techniques,
-        sizes,
-        communes,
-        types,
-        locations,
-        ubications,
-      ] = response.data;
+      const [ubicaciones, communes, ubications] = response.data;
 
       const transformData = (items, displayFormat) => {
         return items.map((item) => ({
@@ -161,28 +126,45 @@ export default function Import() {
           display: displayFormat(item),
         }));
       };
+
       const displayFormats = {
         ubicacion: (item) =>
           `${item.tipo}: ${item.numero_caja ?? ""}-${item.deposito ?? ""}-${
             item.estante ?? ""
           }-${item.piso ?? ""}`,
-        technique: (item) => item.description,
-        size: (item) => item.description,
         commune: (item) => item.description,
-        type: (item) => item.description,
-        location: (item) => item.description,
         ubication: (item) => item.enclosure,
       };
 
       setForeignTablesData({
         ubicacion_id: transformData(ubicaciones, displayFormats.ubicacion),
-        techniques_id: transformData(techniques, displayFormats.technique),
-        sizes_id: transformData(sizes, displayFormats.size),
         communes_id: transformData(communes, displayFormats.commune),
-        types_id: transformData(types, displayFormats.type),
-        locations_id: transformData(locations, displayFormats.location),
         ubications_id: transformData(ubications, displayFormats.ubication),
       });
+
+      setColumns((column) =>
+        column.map((col) => {
+          if (col.id === "ubicacion_id") {
+            return {
+              ...col,
+              options: transformData(ubicaciones, displayFormats.ubicacion),
+            };
+          }
+          if (col.id === "communes_id") {
+            return {
+              ...col,
+              options: transformData(communes, displayFormats.commune),
+            };
+          }
+          if (col.id === "ubications_id") {
+            return {
+              ...col,
+              options: transformData(ubications, displayFormats.ubication),
+            };
+          }
+          return col;
+        })
+      );
     } catch (error) {
       console.error("Connection Failed:", error.message);
     }
@@ -206,16 +188,14 @@ export default function Import() {
           id: file.inventoryCode,
           name: file.newName,
           path: file.path,
-          collection_id: location.state?.dbCollectionId || "",
+          description: null,
+          elements: null,
           date: null,
           ubicacion_id: "",
-          techniques_id: "",
-          sizes_id: "",
           communes_id: "",
-          types_id: "",
-          locations_id: "",
           ubications_id: "",
           censored: false,
+          censored_reason: null,
           published: false,
         });
 
@@ -229,11 +209,27 @@ export default function Import() {
       });
     };
 
-    const cleanup = window.electronAPI.onFileProcessed(onFileProcessed);
+    const fileCleanup = window.electronAPI.onFileProcessed(onFileProcessed);
+
+    const onCSVFile = (data) => {
+      if (!isMounted) return;
+
+      const hasDateParts = data.some((row) => row.year);
+      const updatedColumns = columns.filter((col) => {
+        if (col.id === "date" && hasDateParts) return false;
+        return true;
+      });
+
+      setColumns(updatedColumns);
+      setCSVData(data);
+    };
+
+    const csvCleanup = window.electronAPI.onCSVFile(onCSVFile);
 
     return () => {
       isMounted = false;
-      cleanup();
+      fileCleanup();
+      csvCleanup();
 
       window.electronAPI
         .executeRollback(location.state?.collectionPath)
@@ -253,6 +249,7 @@ export default function Import() {
     if (!column.editable) return;
 
     if (column.type === "boolean") {
+      setEditingCell(null);
       const updatedFiles = files.map((file) => {
         if (file.id === fileId) {
           return { ...file, [columnId]: !file[columnId] };
@@ -295,12 +292,13 @@ export default function Import() {
     }));
   };
 
-  const handleEditComplete = () => {
+  const handleEditComplete = (e) => {
     if (!editingCell) return;
 
     const { fileId, columnId } = editingCell;
     const column = columns.find((col) => col.id === columnId);
     let value = editValues[columnId];
+    if (value) value = value.trim();
 
     const updatedFiles = files.map((file) => {
       if (file.id === fileId) {
@@ -375,7 +373,7 @@ export default function Import() {
                 Array.isArray(file.elements)
                   ? file.elements
                   : typeof file.elements === "string"
-                  ? file.elements.split(",")
+                  ? file.elements.split(",").map((el) => el.trim())
                   : []
               }
               onChange={(e) => {
@@ -842,18 +840,13 @@ export default function Import() {
       return String(value).toLowerCase().includes(filterText.toLowerCase());
     });
   });
+
   const sortedData = getSortedData();
 
   // Sending data
   const validateFilesForImport = (files) => {
     const mandatoryColumns = [
-      { id: "ubicacion_id", header: "Ubicación objeto" },
-      { id: "techniques_id", header: "Técnica" },
-      { id: "sizes_id", header: "Tamaño" },
-      { id: "communes_id", header: "Comuna" },
-      { id: "types_id", header: "Tipo" },
-      { id: "locations_id", header: "Locación" },
-      { id: "ubications_id", header: "Ubicación" },
+      //{ id: "ubicacion_id", header: "Ubicación objeto" },
     ];
     const errors = [];
 
@@ -871,6 +864,7 @@ export default function Import() {
 
     return errors;
   };
+
   const transformFileForDatabase = (file) => {
     let year = null;
     let month = null;
@@ -901,39 +895,107 @@ export default function Import() {
     const minutes = String(now.getMinutes()).padStart(2, "0");
     const seconds = String(now.getSeconds()).padStart(2, "0");
 
-    const columnsToSend = {
+    let fileType = null;
+    const collectionType = location.state?.collectionType;
+    switch (collectionType) {
+      case "audios":
+        fileType = 4;
+        break;
+
+      case "documentos":
+        fileType = 3;
+        break;
+
+      case "imagenes":
+        fileType = 1;
+        break;
+
+      case "peliculas":
+        fileType = 2;
+        break;
+    }
+
+    const csvRow = csvData?.[0] || {};
+
+    const monthMap = {
+      enero: 1,
+      febrero: 2,
+      marzo: 3,
+      abril: 4,
+      mayo: 5,
+      junio: 6,
+      julio: 7,
+      agosto: 8,
+      septiembre: 9,
+      octubre: 10,
+      noviembre: 11,
+      diciembre: 12,
+    };
+
+    const csvValues = Object.entries(csvRow).reduce((item, [key, value]) => {
+      if (value === undefined || value === null) {
+        item[key] = null;
+        return item;
+      }
+
+      if (key.toLowerCase() === "month") {
+        const numValue = Number(value);
+        if (!Number.isNaN(numValue)) {
+          item[key] = numValue;
+          return item;
+        }
+
+        const lowerValue = String(value).toLowerCase().trim();
+        item[key] = monthMap[lowerValue];
+        return item;
+      }
+
+      const numericFields = ["year", "day", "box_number", "container_number"];
+      if (numericFields.includes(key)) {
+        item[key] = Number.isNaN(Number(value)) ? null : Number(value);
+        return item;
+      }
+
+      item[key] = String(value);
+      return item;
+    }, {});
+
+    const valuesToSend = {
       code: file.id.split("_")[0],
       n_object: file.id.split("_")[1],
       n_ic: file.id.split("_")[2],
-      collection_id: file.collection_id,
+      collection_id: location.state?.dbCollectionId,
       path: file.path,
       container_annotations: null,
       object_annotations: null,
       title: null,
-      description: null,
+      description: file.description || null,
       history: null,
       information: null,
       peoples: null,
-      elements: null,
+      elements: file.elements || null,
+      streets: "desconocido,desconocido",
       year: year,
       month: month,
       day: day,
       censored: file.censored ? 1 : 0,
-      censored_reason: null,
+      censored_reason: file.censored_reason || null,
       published: file.published ? 1 : 0,
       ai_description: null,
-      ubicacion_id: file.ubicacion_id || null,
-      techniques_id: file.techniques_id || null,
-      sizes_id: file.sizes_id || null,
-      communes_id: file.communes_id || null,
-      types_id: file.types_id || null,
-      locations_id: file.locations_id || null,
-      ubications_id: file.ubications_id || null,
+      ai_elements: null,
+      ubicacion_id: file.ubicacion_id || 1,
+      techniques_id: 27,
+      sizes_id: 1,
+      communes_id: file.communes_id || 128,
+      types_id: fileType,
+      locations_id: 3,
+      ubications_id: file.ubications_id || 360,
       created_at: `${nowYear}-${nowMonth}-${nowDay} ${hours}:${minutes}:${seconds}`,
       updated_at: `${nowYear}-${nowMonth}-${nowDay} ${hours}:${minutes}:${seconds}`,
+      ...csvValues,
     };
 
-    return columnsToSend;
+    return valuesToSend;
   };
 
   const { showStatusMessage } = useContext(StatusContext);
@@ -972,19 +1034,6 @@ export default function Import() {
     setModalVisible(true);
   };
 
-  useEffect(() => {
-    const cleanup = window.electronAPI.onImportProgress((progress) => {
-      setImportProgress(progress);
-      if (progress === 100) {
-        setTimeout(() => {
-          navigate("/selectCollection");
-          setLoadingModalVisible(false);
-        }, 500);
-      }
-    });
-
-    return () => cleanup();
-  }, []);
   const handleConfirmImport = async () => {
     try {
       setModalVisible(false);
@@ -1008,6 +1057,58 @@ export default function Import() {
       showStatusMessage("error", `Error durante la importación`);
       console.error("Import error:", error);
     }
+  };
+
+  useEffect(() => {
+    const cleanup = window.electronAPI.onImportProgress((progress) => {
+      setImportProgress(progress);
+      if (progress === 100) {
+        setTimeout(() => {
+          navigate("/selectCollection");
+          setLoadingModalVisible(false);
+        }, 500);
+      }
+    });
+
+    return () => cleanup();
+  }, []);
+
+  // Back to top functionality and column menu click outside function
+  useEffect(() => {
+    const toggleVisibility = () => {
+      if (window.scrollY > 400) {
+        setBackToTopButtonVisible(true);
+      } else {
+        setBackToTopButtonVisible(false);
+      }
+    };
+
+    const handleClickOutside = (event) => {
+      if (
+        columnMenuRef.current &&
+        !columnMenuRef.current.contains(event.target)
+      ) {
+        const isMenuToggle = event.target.closest(".columnMenuToggle");
+        if (!isMenuToggle) {
+          setOpenColumnMenu(null);
+        }
+      }
+    };
+
+    window.addEventListener("scroll", toggleVisibility);
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      window.removeEventListener("scroll", toggleVisibility);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   if (loadingModalVisible) {
@@ -1087,6 +1188,10 @@ export default function Import() {
               <div className="tableControls">
                 <div className="tableInfo">
                   <span>{sortedData.length} archivos encontrados</span>
+                  <span style={{ margin: "0 0.5rem" }}>|</span>
+                  <span>
+                    Importando a la colección {location.state?.dbCollectionId}
+                  </span>
                   {selectedRows.length > 0 && (
                     <span className="selectedInfo">
                       {selectedRows.length} seleccionados
@@ -1222,6 +1327,12 @@ export default function Import() {
           </div>
         </>
       )}
+      <button
+        className={`backToTop ${backToTopButtonVisible ? "visible" : ""}`}
+        onClick={scrollToTop}
+      >
+        <FaArrowUp />
+      </button>
     </div>
   );
 }

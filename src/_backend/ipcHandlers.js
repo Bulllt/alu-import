@@ -1,27 +1,31 @@
 const FileManager = require("./fileManager");
+const { Worker } = require("worker_threads");
 const { ipcMain, dialog, net, shell, app } = require("electron");
 const path = require("path");
 const fs = require("fs-extra");
-const { execSync } = require("child_process");
 const crypto = require("crypto");
 require("dotenv").config({
   path: path.join(process.resourcesPath, ".env"),
 });
-const ffmpeg = require("fluent-ffmpeg");
 
 class IPCHandlers {
-  constructor() {
+  constructor(mainWindow) {
     this.configPath = path.join(
       require("electron").app.getPath("userData"),
       "config.json"
     );
+
     this.fileManager = new FileManager(
       this.sendStatusToRenderer.bind(this),
       this.configPath
     );
-  }
 
-  init(mainWindow) {
+    this.workerPool = [];
+    this.maxWorkers = Math.max(
+      2,
+      Math.floor(require("os").cpus().length * 0.7)
+    );
+
     this.mainWindow = mainWindow;
     this.fileManager.mainWindow = mainWindow;
     this.setupHandlers();
@@ -69,12 +73,6 @@ class IPCHandlers {
       "fetch-foreign-tables",
       this.handleFetchForeignTables.bind(this)
     );
-
-    // Cleanup on exit
-    ipcMain.on("close-app", () => {
-      this.fileManager.cleanup();
-      app.quit();
-    });
   }
 
   async handleOpenFolderDialog() {
@@ -244,59 +242,49 @@ class IPCHandlers {
   }
 
   async handleGetImageThumbnail(_, filePath) {
-    try {
-      const ext = path.extname(filePath).toLowerCase();
-      const videoExtensions = [".mp4", ".avi", ".mov", ".mkv", ".webm"];
-      const audioExtensions = [".mp3", ".wav", ".aac", ".flac", ".ogg", ".m4a"];
+    if (this.workerPool.length < this.maxWorkers) {
+      return new Promise((resolve) => {
+        const worker = new Worker(
+          path.join(process.resourcesPath, "worker", "index.js"),
+          {
+            workerData: { filePath },
+          }
+        );
 
-      if (audioExtensions.includes(ext)) {
-        return "audio";
-      }
+        this.workerPool.push(worker);
 
-      if (videoExtensions.includes(ext)) {
-        const tempDir = path.join(app.getPath("temp"), "alu-thumbnails");
-        await fs.ensureDir(tempDir);
-        const thumbnailFilename = `${path.basename(filePath, ext)}.png`;
-        const thumbnailPath = path.join(tempDir, thumbnailFilename);
-
-        await new Promise((resolve, reject) => {
-          ffmpeg(filePath)
-            .screenshots({
-              timestamps: ["1"],
-              filename: thumbnailFilename,
-              folder: tempDir,
-              size: "100x?",
-            })
-            .on("end", resolve)
-            .on("error", reject);
+        worker.on("message", (result) => {
+          worker.terminate();
+          const index = this.workerPool.indexOf(worker);
+          if (index !== -1) {
+            this.workerPool.splice(index, 1);
+          }
+          resolve(result);
         });
 
-        const thumbBuffer = await fs.readFile(thumbnailPath);
-        await fs.remove(thumbnailPath);
+        worker.on("error", (error) => {
+          console.error("Worker error:", error);
+          worker.terminate();
+          const index = this.workerPool.indexOf(worker);
+          if (index !== -1) {
+            this.workerPool.splice(index, 1);
+          }
+          resolve(null);
+        });
 
-        return `data:image/png;base64,${thumbBuffer.toString("base64")}`;
-      }
-
-      const tempDir = path.join(app.getPath("temp"), "alu-thumbnails");
-      await fs.ensureDir(tempDir);
-      const thumbnailFilename = `${path.basename(filePath, ext)}.png`;
-      const thumbnailPath = path.join(tempDir, thumbnailFilename);
-
-      const command = [
-        "magick convert",
-        `"${filePath}"`,
-        "-resize 100x100^>",
-        `"${thumbnailPath}"`,
-      ].join(" ");
-
-      execSync(command, { stdio: "pipe" });
-      const thumbBuffer = await fs.readFile(thumbnailPath);
-      await fs.remove(thumbnailPath);
-
-      return `data:image/png;base64,${thumbBuffer.toString("base64")}`;
-    } catch (error) {
-      console.error("Error generating thumbnail:", error);
-      return null;
+        worker.on("exit", (code) => {
+          if (code !== 0) {
+            console.warn(`Worker stopped with exit code ${code}`);
+          }
+          const index = this.workerPool.indexOf(worker);
+          if (index !== -1) {
+            this.workerPool.splice(index, 1);
+          }
+        });
+      });
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      return this.handleGetImageThumbnail(_, filePath);
     }
   }
 
@@ -332,6 +320,7 @@ class IPCHandlers {
       return { folderPath: null };
     }
   }
+
   writeConfig(config) {
     try {
       const configDir = path.dirname(this.configPath);
@@ -345,6 +334,7 @@ class IPCHandlers {
       throw error;
     }
   }
+
   makeGETRequest(path, token) {
     return new Promise((resolve, reject) => {
       const request = net.request({
@@ -394,15 +384,14 @@ class IPCHandlers {
       request.end();
     });
   }
-}
 
-function setupFileHandlers(mainWindow) {
-  if (!mainWindow) {
-    console.error("MainWindow is undefined in setupFileHandlers");
-    return;
+  cleanup() {
+    this.fileManager.cleanup();
+    for (const worker of this.workerPool) {
+      worker.terminate();
+    }
+    this.workerPool = [];
   }
-  const ipcHandlers = new IPCHandlers();
-  ipcHandlers.init(mainWindow);
 }
 
-module.exports = { setupFileHandlers };
+module.exports = IPCHandlers;

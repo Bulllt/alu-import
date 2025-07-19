@@ -34,3 +34,6 @@
 .warningButton:hover {
   background-color: var(--accent-color) !important;
 }
+.warningButton:focus {
+  outline: none;
+}

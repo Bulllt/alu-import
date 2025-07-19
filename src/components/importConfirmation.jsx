@@ -90,15 +90,23 @@ export default function ImportConfirmation({
               </div>
               <div className="fileDetails">
                 <span>Colección: {file.collection_id}</span>
+                <span>Descripción: {file.description}</span>
+                <span>Elementos: {file.elements}</span>
                 <span>Fecha: {formatDate(file)}</span>
-                <span>Ubicación objeto (ID): {file.ubicacion_id}</span>
-                <span>Técnica (ID): {file.techniques_id}</span>
-                <span>Tamaño (ID): {file.sizes_id}</span>
-                <span>Comuna (ID): {file.communes_id}</span>
-                <span>Tipo (ID): {file.types_id}</span>
-                <span>Locación (ID): {file.locations_id}</span>
-                <span>Ubicación (ID): {file.ubications_id}</span>
+                <span>
+                  Ubicación objeto (ID):{" "}
+                  {file.ubicacion_id !== 1 ? file.ubicacion_id : "null"}
+                </span>
+                <span>
+                  Comuna (ID):{" "}
+                  {file.communes_id !== 128 ? file.communes_id : "null"}
+                </span>
+                <span>
+                  Ubicación (ID):{" "}
+                  {file.ubications_id !== 360 ? file.ubications_id : "null"}
+                </span>
                 <span>Censurado: {file.censored ? "Sí" : "No"}</span>
+                <span>Razón de censura: {file.censored ? "Sí" : "No"}</span>
                 <span>Publicado: {file.published ? "Sí" : "No"}</span>
               </div>
             </div>

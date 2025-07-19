@@ -28,6 +28,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("file-processed", wrappedCallback);
     return () => ipcRenderer.removeListener("file-processed", wrappedCallback);
   },
+  onCSVFile: (callback) => {
+    const wrappedCallback = (event, data) => {
+      callback(data);
+    };
+    ipcRenderer.on("csv-file", wrappedCallback);
+    return () => ipcRenderer.removeListener("csv-file", wrappedCallback);
+  },
   offFileProcessed: (callback) => {
     ipcRenderer.removeListener("file-processed", callback);
   },

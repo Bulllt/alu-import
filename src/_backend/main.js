@@ -1,5 +1,7 @@
-const { setupFileHandlers } = require("./ipcHandlers");
+const IPCHandlers = require("./ipcHandlers");
 const { app, BrowserWindow } = require("electron");
+const fs = require("fs-extra");
+const path = require("path");
 const windowStateKeeper = require("electron-window-state");
 
 if (require("electron-squirrel-startup")) {
@@ -33,17 +35,29 @@ const createWindow = () => {
 
 app.whenReady().then(() => {
   createWindow();
-  setupFileHandlers(mainWindow);
+  const setupFileHandlers = new IPCHandlers(mainWindow);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
-});
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  const cleanup = async () => {
+    try {
+      const tempDir = path.join(require("os").tmpdir(), "alu-thumbnails");
+      if (await fs.pathExists(tempDir)) {
+        await fs.remove(tempDir);
+      }
+      setupFileHandlers.cleanup();
+    } catch (error) {
+      console.error("Cleanup failed:", error);
+    }
+  };
+
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
+      cleanup().then(() => app.quit());
+    }
+  });
 });
