@@ -4,7 +4,7 @@ const fs = require("fs-extra");
 const crypto = require("crypto");
 const { execSync } = require("child_process");
 const ffmpeg = require("fluent-ffmpeg");
-ffmpeg.setFfmpegPath(require("ffmpeg-static"));
+ffmpeg.setFfmpegPath(path.join(process.resourcesPath, "ffmpeg.exe"));
 
 async function generateThumbnail(filePath) {
   try {

@@ -1,6 +1,6 @@
 const FileManager = require("./fileManager");
 const { Worker } = require("worker_threads");
-const { ipcMain, dialog, net, shell, app } = require("electron");
+const { ipcMain, dialog, net, shell } = require("electron");
 const path = require("path");
 const fs = require("fs-extra");
 const crypto = require("crypto");

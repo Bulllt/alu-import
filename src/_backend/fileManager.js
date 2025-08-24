@@ -11,6 +11,7 @@ const { createClient } = require("@deepgram/sdk");
 const ffmpeg = require("fluent-ffmpeg");
 const { execSync } = require("child_process");
 const { PDFDocument } = require("pdf-lib");
+const S3Manager = require("./s3Manager");
 
 class FileManager {
   constructor(sendStatusToRenderer, configPath) {
@@ -32,12 +33,16 @@ class FileManager {
 
     this.baseDir = null;
     this.lastImported = null;
+
     this.nasOriginal = null;
     this.nas2400 = null;
-    this.initializePath();
 
+    this.initializePath();
     //this.nasOriginal = "\\\\Nasarchivo\\archivo\\2400px\\DC\\archivos";
     //this.nas2400 = "\\\\Nasarchivo\\archivo\\original\\DC\\archivos";
+    this.s3Manager = new S3Manager();
+    this.temp400pxDir = path.join(require("os").tmpdir(), "400px");
+    fs.ensureDirSync(this.temp400pxDir);
   }
 
   // Helper functions
@@ -481,7 +486,8 @@ class FileManager {
         const fileParts = path.basename(file, path.extname(file)).split("_");
         return fileParts[0] === prefix && fileParts[1] >= baseNumber;
       });
-      const aiResults = await this.generateAIDescriptions(imageFiles);
+      //const aiResults = await this.generateAIDescriptions(imageFiles);
+      const aiResults = "hola";
 
       // Update files with AI descriptions
       const updatedFiles = files.map((file, index) => ({
@@ -522,10 +528,11 @@ class FileManager {
         `${fileName}${ext}`
       );
       const nas2400Path = path.join(this.nas2400, prefix, `${fileName}.jpg`);
+      const temp400pxPath = path.join(this.temp400pxDir, `${fileName}.jpg`);
 
       await fs.copy(filePath, nasOriginalPath);
 
-      const convertCommand = [
+      const convert2400Command = [
         "magick convert",
         `"${filePath}"`,
         "-auto-level",
@@ -539,8 +546,24 @@ class FileManager {
         `"${nas2400Path}"`,
       ].join(" ");
 
+      const convert400Command = [
+        "magick convert",
+        `"${filePath}"`,
+        "-resize 400x400^>",
+        "-quality 70%",
+        `"${temp400pxPath}"`,
+      ].join(" ");
+
       try {
-        execSync(convertCommand, { stdio: "pipe" });
+        execSync(convert2400Command, { stdio: "pipe" });
+        execSync(convert400Command, { stdio: "pipe" });
+        await this.s3Manager.sendToBucket(
+          nas2400Path,
+          temp400pxPath,
+          "imagenes"
+        );
+        await fs.remove(temp400pxPath);
+
         processedFiles++;
         progressCallback(processedFiles / totalFiles);
       } catch (convertError) {
@@ -659,8 +682,13 @@ class FileManager {
       await fs.remove(collectionPath);
       updateProgress(95);
 
+      const updatedFiles = files.map((file) => ({
+        ...file,
+        path: `/storage/original/dm/${file.s3Hash}`,
+      }));
+
       const token = this.generateToken();
-      await this.sendToDatabase(files, token);
+      await this.sendToDatabase(updatedFiles, token);
       updateProgress(100);
 
       return true;
@@ -737,10 +765,10 @@ class FileManager {
       const fileName = path.basename(filePath, ext);
       const prefix = fileName.split("_")[0];
 
-      fs.ensureDirSync(path.join(this.nasOriginal, prefix));
       fs.ensureDirSync(path.join(this.nas2400, prefix));
 
       const outputPath = path.join(this.nas2400, prefix, `${fileName}.mp4`);
+      const tempThumbnailPath = path.join(this.temp400pxDir, `${fileName}.jpg`);
 
       try {
         await new Promise((resolve, reject) => {
@@ -788,6 +816,31 @@ class FileManager {
             })
             .save(outputPath);
         });
+
+        await new Promise((resolve, reject) => {
+          ffmpeg(outputPath)
+            .screenshots({
+              timestamps: ["1"],
+              filename: `${fileName}.jpg`,
+              folder: this.temp400pxDir,
+              size: "400x?",
+            })
+            .on("end", resolve)
+            .on("error", reject);
+        });
+
+        const hash = await this.generateFileHash(outputPath);
+        const hashedFilename = `${fileName}_${hash}`;
+        file.s3Hash = hashedFilename;
+
+        await this.s3Manager.sendToBucket(
+          outputPath,
+          tempThumbnailPath,
+          "peliculas",
+          hashedFilename
+        );
+
+        await fs.remove(tempThumbnailPath);
       } catch (error) {
         console.error(`Fatal error processing ${file.path}:`, error);
         throw error;
@@ -834,7 +887,7 @@ class FileManager {
 
       const updatedFiles = files.map((file) => ({
         ...file,
-        path: null,
+        path: `/storage/original/dm/${file.s3Hash}`,
       }));
 
       const token = this.generateToken();
@@ -883,6 +936,17 @@ class FileManager {
 
       const vttPath = path.join(this.nas2400, prefix, `${fileName}.vtt`);
       await this.generateAudioTranscription(filePath, vttPath);
+
+      const hash = await this.generateFileHash(nas2400Path);
+      const hashedFilename = `${fileName}_${hash}`;
+      file.s3Hash = hashedFilename;
+
+      await this.s3Manager.sendToBucket(
+        nas2400Path,
+        null,
+        "audios",
+        hashedFilename
+      );
 
       progressCallback((processedFiles + 0.8) / totalFiles);
       processedFiles++;
@@ -980,8 +1044,13 @@ class FileManager {
       await this.moveToImported(collectionPath);
       updateProgress(95);
 
+      const updatedFiles = files.map((file) => ({
+        ...file,
+        path: `/storage/original/dm/${file.s3Hash}`,
+      }));
+
       const token = this.generateToken();
-      await this.sendToDatabase(files, token);
+      await this.sendToDatabase(updatedFiles, token);
       updateProgress(100);
       return true;
     } catch (error) {
@@ -995,6 +1064,7 @@ class FileManager {
     const processedFolders = new Set();
     const totalFiles = files.length;
     let processedFiles = 0;
+    let hashedFilename = null;
 
     for (const file of files) {
       try {
@@ -1007,13 +1077,22 @@ class FileManager {
           if (!processedFolders.has(documentPath)) {
             const filesInsideFolder = await fs.readdir(documentPath);
 
-            await this.processMultiPageDocument(documentPath, documentFolder);
+            hashedFilename = await this.processMultiPageDocument(
+              documentPath,
+              documentFolder
+            );
+
             processedFolders.add(documentPath);
             processedFiles += filesInsideFolder.length;
             progressCallback((processedFiles / totalFiles) * 0.8);
           }
+
+          file.s3Hash = hashedFilename;
         } else {
-          await this.processSinglePageDocument(file);
+          const hashedFilename = await this.processSinglePageDocument(file);
+
+          file.s3Hash = hashedFilename;
+
           processedFiles++;
           progressCallback((processedFiles / totalFiles) * 0.8);
         }
@@ -1027,7 +1106,6 @@ class FileManager {
   async processMultiPageDocument(documentPath, documentBase) {
     const imageFiles = await fs.readdir(documentPath);
     const prefix = documentBase.split("_")[0];
-    const totalPages = imageFiles.length;
 
     fs.ensureDirSync(path.join(this.nasOriginal, prefix));
     fs.ensureDirSync(path.join(this.nas2400, prefix));
@@ -1059,11 +1137,16 @@ class FileManager {
 
     await this.mergePDFs(pdfPages, originalPdfPath);
 
-    await this.compressPdfWithGhostscript(originalPdfPath, compressedPdfPath);
+    const hashedFilename = await this.compressPdfWithGhostscript(
+      originalPdfPath,
+      compressedPdfPath
+    );
 
     await this.createTextJSON(textContents, jsonPath);
 
     await Promise.all(pdfPages.map((page) => fs.remove(page)));
+
+    return hashedFilename;
   }
 
   async processSinglePageDocument(file) {
@@ -1091,9 +1174,14 @@ class FileManager {
 
       await fs.move(pdfPath, originalPdfPath);
 
-      await this.compressPdfWithGhostscript(originalPdfPath, compressedPdfPath);
+      const hashedFilename = await this.compressPdfWithGhostscript(
+        originalPdfPath,
+        compressedPdfPath
+      );
 
       await this.createTextJSON({ page1: textContent }, jsonPath);
+
+      return hashedFilename;
     } catch (error) {
       console.error("Error inside processingSinglePageDocument", error);
       throw error;
@@ -1104,6 +1192,7 @@ class FileManager {
     const directory = path.dirname(imagePath);
     const baseName = path.basename(imagePath, path.extname(imagePath));
     const outputBase = path.join(directory, baseName);
+    const temp400pxPath = path.join(this.temp400pxDir, `${baseName}.jpg`);
 
     const tesseractCommand = [
       "tesseract",
@@ -1117,8 +1206,20 @@ class FileManager {
       "pdf txt",
     ].join(" ");
 
+    const createThumbnail = [
+      "magick convert",
+      `"${imagePath}"`,
+      "-resize 400x400^>",
+      "-quality 70%",
+      `"${temp400pxPath}"`,
+    ].join(" ");
+
     try {
       execSync(tesseractCommand, { stdio: "pipe" });
+      execSync(createThumbnail, { stdio: "pipe" });
+
+      await this.s3Manager.sendToBucket(null, temp400pxPath, "documentos");
+      await fs.remove(temp400pxPath);
 
       let textContent = "";
       try {
@@ -1206,6 +1307,19 @@ class FileManager {
 
     try {
       execSync(gsCommand, { stdio: "pipe" });
+
+      const hash = await this.generateFileHash(outputPath);
+      const baseName = path.basename(outputPath, path.extname(outputPath));
+      const hashedFilename = `${baseName}_${hash}`;
+
+      await this.s3Manager.sendToBucket(
+        outputPath,
+        null,
+        "documentos",
+        hashedFilename
+      );
+
+      return hashedFilename;
     } catch (error) {
       console.error(`Ghostscript compression failed for ${inputPath}:`, error);
       throw new Error("PDF compression failed", error);
@@ -1224,18 +1338,14 @@ class FileManager {
     return `${timestamp}:${hmac}`;
   }
 
-  async create2400file(imagePath, type) {
-    if (type === "document") {
-      const dir = path.dirname(imagePath);
-      const ext = path.extname(imagePath);
-      const baseName = path.basename(imagePath, ext);
-      const tempPath = path.join(dir, `${baseName}_temp${ext}`);
-
-      execSync(
-        `magick convert "${imagePath}" -resize 2400x2400 -quality 85 "${tempPath}"`
-      );
-      return tempPath;
-    }
+  generateFileHash(filePath) {
+    return new Promise((resolve, reject) => {
+      const hash = crypto.createHash("sha256");
+      const stream = fs.createReadStream(filePath);
+      stream.on("data", (chunk) => hash.update(chunk));
+      stream.on("end", () => resolve(hash.digest("hex")));
+      stream.on("error", reject);
+    });
   }
 
   async moveToImported(collectionPath) {
@@ -1318,6 +1428,8 @@ class FileManager {
     const type = config.lastCollectionType;
     const nas2400Path = path.join(this.nas2400, prefix);
     const nasOriginalPath = path.join(this.nasOriginal, prefix);
+
+    await this.s3Manager.cleanLastImportFromS3(prefix, baseNumber, type);
 
     const nas2400Files = await fs.readdir(nas2400Path);
     for (const file of nas2400Files) {
