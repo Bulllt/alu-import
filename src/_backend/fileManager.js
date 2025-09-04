@@ -481,19 +481,25 @@ class FileManager {
 
       // Generate AI description for the last processed collection
       const [prefix, baseNumber] = lastInventoryCode.split("_");
-      const importedFiles = await fs.readdir(this.nas2400);
+      const importedFiles = await fs.readdir(path.join(this.nas2400, prefix));
       const imageFiles = importedFiles.filter((file) => {
         const fileParts = path.basename(file, path.extname(file)).split("_");
         return fileParts[0] === prefix && fileParts[1] >= baseNumber;
       });
-      //const aiResults = await this.generateAIDescriptions(imageFiles);
-      const aiResults = "hola";
+
+      const aiResults = await this.generateAIDescriptions(imageFiles, prefix);
 
       // Update files with AI descriptions
       const updatedFiles = files.map((file, index) => ({
         ...file,
         ai_description: aiResults[index]?.description || "",
-        ai_elements: aiResults[index]?.elements || "",
+        ai_elements:
+          JSON.stringify(
+            aiResults[index]?.elements
+              .split(",")
+              .map((item) => item.trim())
+              .filter((item) => item !== "")
+          ) || "",
         path: null,
       }));
       updateProgress(90);
@@ -576,7 +582,7 @@ class FileManager {
     }
   }
 
-  async generateAIDescriptions(imageFiles) {
+  async generateAIDescriptions(imageFiles, prefix) {
     const results = [];
     const prompt = `Necesito dos textos del contenido de esta fotografía que es parte de nuestro archivo histórico:
     1. description: [descripción absolutamente objetiva del contenido visual, sin inferencias. Describe personas, objetos, paisajes, gestos faciales visibles, disposición espacial y cualquier texto legible]
@@ -594,7 +600,7 @@ class FileManager {
 
     for (const file of imageFiles) {
       try {
-        const imagePath = path.join(this.nas2400, file);
+        const imagePath = path.join(this.nas2400, prefix, file);
         const imageBase64 = await fs.readFile(imagePath, {
           encoding: "base64",
         });
@@ -943,7 +949,7 @@ class FileManager {
 
       await this.s3Manager.sendToBucket(
         nas2400Path,
-        null,
+        vttPath,
         "audios",
         hashedFilename
       );
@@ -960,11 +966,14 @@ class FileManager {
 
       const { result, error } =
         await this.deepgram.listen.prerecorded.transcribeFile(audioFile, {
-          model: "nova-2",
-          language: "es",
+          model: "nova-3",
+          language: "multi",
+          translation: "es",
           punctuate: true,
           diarize: true,
           smart_format: true,
+          filler_words: true,
+          utterances: true,
         });
 
       if (error) {

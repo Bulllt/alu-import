@@ -90,6 +90,12 @@ class S3Manager {
         }
       } else if (fileType === "audios") {
         await this.uploadToBucket(largeFilePath, this.folders.FILES, hash);
+
+        await this.uploadToBucket(
+          smallFilePath,
+          this.folders.FILES,
+          `${hash}.vtt`
+        );
       }
 
       return true;
