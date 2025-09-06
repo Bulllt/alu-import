@@ -12,6 +12,7 @@ const ffmpeg = require("fluent-ffmpeg");
 const { execSync } = require("child_process");
 const { PDFDocument } = require("pdf-lib");
 const S3Manager = require("./s3Manager");
+const variablesConfig = require("./variablesConfig");
 
 class FileManager {
   constructor(sendStatusToRenderer, configPath) {
@@ -756,7 +757,7 @@ class FileManager {
   }
 
   async processAndConvertMovies(files, progressCallback) {
-    const watermarkPath = path.join(process.resourcesPath, "watermark.png");
+    const watermarkPath = variablesConfig.watermarkPath;
 
     const totalFiles = files.length;
     let processedFiles = 0;
@@ -1379,8 +1380,8 @@ class FileManager {
     return new Promise((resolve, reject) => {
       const request = net.request({
         method: "POST",
-        protocol: "http:",
-        hostname: "alu.test",
+        protocol: variablesConfig.apiConfig.protocol,
+        hostname: variablesConfig.apiConfig.hostname,
         path: "/api/insertNewFiles",
         headers: {
           "Content-Type": "application/json",

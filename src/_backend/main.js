@@ -30,7 +30,7 @@ const createWindow = () => {
 
   mainWindowState.manage(mainWindow);
   mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-  mainWindow.webContents.openDevTools();
+  //mainWindow.webContents.openDevTools();
 };
 
 app.whenReady().then(() => {

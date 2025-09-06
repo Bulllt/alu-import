@@ -7,24 +7,25 @@ const {
 const fs = require("fs-extra");
 const path = require("path");
 const mime = require("mime-types");
+const variablesConfig = require("./variablesConfig");
 
 class S3Manager {
   constructor() {
     const s3Config = {
       region: process.env.AWS_REGION,
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        accessKeyId: variablesConfig.AWS_ACCESS_KEY_ID,
+        secretAccessKey: variablesConfig.AWS_SECRET_ACCESS_KEY,
       },
       forcePathStyle: true,
     };
 
-    s3Config.endpoint = process.env.AWS_URL;
+    s3Config.endpoint = variablesConfig.AWS_URL;
 
     this.s3 = new S3Client(s3Config);
 
     this.buckets = {
-      MAIN: process.env.S3_MAIN_BUCKET,
+      MAIN: variablesConfig.S3_MAIN_BUCKET,
     };
 
     this.folders = {

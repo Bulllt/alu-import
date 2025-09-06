@@ -7,6 +7,7 @@ const crypto = require("crypto");
 require("dotenv").config({
   path: path.join(process.resourcesPath, ".env"),
 });
+const variablesConfig = require("./variablesConfig");
 
 class IPCHandlers {
   constructor(mainWindow) {
@@ -244,12 +245,9 @@ class IPCHandlers {
   async handleGetImageThumbnail(_, filePath) {
     if (this.workerPool.length < this.maxWorkers) {
       return new Promise((resolve) => {
-        const worker = new Worker(
-          path.join(process.resourcesPath, "worker", "index.js"),
-          {
-            workerData: { filePath },
-          }
-        );
+        const worker = new Worker(variablesConfig.workerPath, {
+          workerData: { filePath },
+        });
 
         this.workerPool.push(worker);
 
@@ -339,8 +337,8 @@ class IPCHandlers {
     return new Promise((resolve, reject) => {
       const request = net.request({
         method: "GET",
-        protocol: "http:",
-        hostname: "alu.test",
+        protocol: variablesConfig.apiConfig.protocol,
+        hostname: variablesConfig.apiConfig.hostname,
         path,
         headers: {
           Authorization: token,
