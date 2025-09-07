@@ -39,8 +39,6 @@ class FileManager {
     this.nas2400 = null;
 
     this.initializePath();
-    //this.nasOriginal = "\\\\Nasarchivo\\archivo\\2400px\\DC\\archivos";
-    //this.nas2400 = "\\\\Nasarchivo\\archivo\\original\\DC\\archivos";
     this.s3Manager = new S3Manager();
     this.temp400pxDir = path.join(require("os").tmpdir(), "400px");
     fs.ensureDirSync(this.temp400pxDir);
@@ -68,8 +66,16 @@ class FileManager {
     this.lastImported = path.join(this.baseDir, "buzon_importados");
     fs.ensureDirSync(this.lastImported);
 
-    this.nasOriginal = path.join(this.baseDir, "original");
-    this.nas2400 = path.join(this.baseDir, "2400px");
+    this.nasOriginal =
+      process.env.NODE_ENV === "production"
+        ? "\\\\Nasarchivo\\archivo\\original"
+        : path.join(this.baseDir, "original");
+
+    this.nas2400 =
+      process.env.NODE_ENV === "production"
+        ? "\\\\Nasarchivo\\archivo\\2400px"
+        : path.join(this.baseDir, "2400px");
+
     fs.ensureDirSync(this.nasOriginal);
     fs.ensureDirSync(this.nas2400);
   }
