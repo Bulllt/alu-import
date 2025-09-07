@@ -63,7 +63,10 @@ class FileManager {
     if (!config.folderPath) return;
 
     this.baseDir = path.dirname(config.folderPath);
-    this.lastImported = path.join(this.baseDir, "buzon_importados");
+    this.lastImported = path.join(
+      this.baseDir,
+      `${path.basename(config.folderPath)}_importados`
+    );
     fs.ensureDirSync(this.lastImported);
 
     this.nasOriginal =
@@ -1495,7 +1498,7 @@ class FileManager {
       console.error("cleanLastImport error:", error);
       await this.sendStatusToRenderer(
         "error",
-        `Cierra los archivos dentro de la carpeta ${collection} dentro de buzon_importados`
+        `Cierra los archivos dentro de la carpeta ${collection} dentro de la carpeta de importados`
       );
       throw error;
     }
