@@ -38,10 +38,6 @@ class variablesConfig {
     this.AWS_SECRET_ACCESS_KEY = this.isProduction
       ? process.env.AWS_SECRET_ACCESS_KEY_PROD
       : process.env.AWS_SECRET_ACCESS_KEY_DEV;
-
-    this.S3_MAIN_BUCKET = this.isProduction
-      ? process.env.S3_MAIN_BUCKET_PROD
-      : process.env.S3_MAIN_BUCKET_DEV;
   }
 }
 

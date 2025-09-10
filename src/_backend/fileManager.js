@@ -700,7 +700,7 @@ class FileManager {
 
       const updatedFiles = files.map((file) => ({
         ...file,
-        path: `/storage/original/dm/${file.s3Hash}`,
+        path: `/original/dm/${file.s3Hash}`,
       }));
 
       const token = this.generateToken();
@@ -903,7 +903,7 @@ class FileManager {
 
       const updatedFiles = files.map((file) => ({
         ...file,
-        path: `/storage/original/dm/${file.s3Hash}`,
+        path: `/original/dm/${file.s3Hash}`,
       }));
 
       const token = this.generateToken();
@@ -1065,7 +1065,7 @@ class FileManager {
 
       const updatedFiles = files.map((file) => ({
         ...file,
-        path: `/storage/original/dm/${file.s3Hash}`,
+        path: `/original/dm/${file.s3Hash}`,
       }));
 
       const token = this.generateToken();
@@ -1348,7 +1348,7 @@ class FileManager {
   // Import helpers
   generateToken() {
     const timestamp = Math.floor(Date.now() / 1000);
-    const secret = process.env.APP_SECRET;
+    const secret = process.env.IMPORT_APP_SECRET;
     const hmac = crypto
       .createHmac("sha256", secret)
       .update(`${timestamp}`)

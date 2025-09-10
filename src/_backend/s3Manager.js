@@ -1,7 +1,7 @@
 const {
   S3Client,
   PutObjectCommand,
-  DeleteObjectCommand,
+  DeleteObjectsCommand,
   ListObjectsV2Command,
 } = require("@aws-sdk/client-s3");
 const fs = require("fs-extra");
@@ -24,9 +24,7 @@ class S3Manager {
 
     this.s3 = new S3Client(s3Config);
 
-    this.buckets = {
-      MAIN: variablesConfig.S3_MAIN_BUCKET,
-    };
+    this.bucket = process.env.S3_BUCKET;
 
     this.folders = {
       IMAGES_2400: process.env.S3_2400_FOLDER,
@@ -42,7 +40,7 @@ class S3Manager {
       const fullKey = `${folder}/${key}`;
 
       const command = new PutObjectCommand({
-        Bucket: this.buckets.MAIN,
+        Bucket: this.bucket,
         Key: fullKey,
         Body: fileBuffer,
         ContentType: contentType,
@@ -52,7 +50,7 @@ class S3Manager {
       await this.s3.send(command);
       return true;
     } catch (error) {
-      console.error(`Error uploading to ${this.buckets.MAIN}:`, error.message);
+      console.error(`Error uploading to ${this.bucket}:`, error.message);
       throw error;
     }
   }
@@ -106,17 +104,45 @@ class S3Manager {
     }
   }
 
-  async deleteFromBucket(bucketName, key) {
+  async deleteFromBucket(keys) {
     try {
-      const command = new DeleteObjectCommand({
-        Bucket: bucketName,
-        Key: key,
+      const command = new DeleteObjectsCommand({
+        Bucket: this.bucket,
+        Delete: {
+          Objects: keys.map((key) => ({ Key: key })),
+          Quiet: false,
+        },
       });
 
-      await this.s3.send(command);
-      return { success: true, bucket: bucketName, key: key };
+      const response = await this.s3.send(command);
+
+      const results = [];
+
+      if (response.Deleted) {
+        response.Deleted.forEach((deleted) => {
+          results.push({
+            success: true,
+            bucket: this.bucket,
+            key: deleted.Key,
+          });
+        });
+      }
+
+      if (response.Errors) {
+        response.Errors.forEach((error) => {
+          results.push({
+            success: false,
+            bucket: this.bucket,
+            key: error.Key,
+            error: error.Message,
+            code: error.Code,
+          });
+        });
+      }
+
+      return results;
     } catch (error) {
-      console.error(`Error deleting from ${bucketName}:`, error.message);
+      console.error(`Error deleting from ${this.bucket}:`, error.message);
       throw error;
     }
   }
@@ -126,7 +152,7 @@ class S3Manager {
       const startKey = `${folderPath}/${prefix}_${baseNumber}`;
 
       const command = new ListObjectsV2Command({
-        Bucket: this.buckets.MAIN,
+        Bucket: this.bucket,
         Prefix: `${folderPath}/${prefix}_`,
         StartAfter: startKey,
       });
@@ -141,7 +167,7 @@ class S3Manager {
 
   async cleanLastImportFromS3(prefix, baseNumber, fileType) {
     try {
-      let filesToDelete = [];
+      let deleteResults = [];
 
       if (fileType === "imagenes") {
         const images2400 = await this.listBucketFiles(
@@ -155,18 +181,9 @@ class S3Manager {
           baseNumber
         );
 
-        filesToDelete = [
-          ...images2400.map((file) => ({
-            bucket: this.buckets.MAIN,
-            key: file,
-            type: "2400px",
-          })),
-          ...images400.map((file) => ({
-            bucket: this.buckets.MAIN,
-            key: file,
-            type: "400px",
-          })),
-        ];
+        const results = await this.deleteFromBucket(images2400);
+        const results2 = await this.deleteFromBucket(images400);
+        deleteResults = [...results, ...results2];
       } else if (fileType === "peliculas") {
         const thumbnails = await this.listBucketFiles(
           this.folders.IMAGES_400,
@@ -180,18 +197,10 @@ class S3Manager {
           baseNumber
         );
 
-        filesToDelete = [
-          ...thumbnails.map((file) => ({
-            bucket: this.buckets.MAIN,
-            key: file,
-            type: "thumbnail",
-          })),
-          ...videos.map((file) => ({
-            bucket: this.buckets.MAIN,
-            key: file,
-            type: "video",
-          })),
-        ];
+        const results = await this.deleteFromBucket(thumbnails);
+        const results2 = await this.deleteFromBucket(videos);
+
+        deleteResults = [...results, ...results2];
       } else if (fileType === "documentos") {
         const thumbnails = await this.listBucketFiles(
           this.folders.IMAGES_400,
@@ -205,18 +214,9 @@ class S3Manager {
           baseNumber
         );
 
-        filesToDelete = [
-          ...thumbnails.map((file) => ({
-            bucket: this.buckets.MAIN,
-            key: file,
-            type: "thumbnail",
-          })),
-          ...documents.map((file) => ({
-            bucket: this.buckets.MAIN,
-            key: file,
-            type: "document",
-          })),
-        ];
+        const results = await this.deleteFromBucket(thumbnails);
+        const results2 = await this.deleteFromBucket(documents);
+        deleteResults = [...results, ...results2];
       } else if (fileType === "audios") {
         const audios = await this.listBucketFiles(
           this.folders.FILES,
@@ -224,28 +224,8 @@ class S3Manager {
           baseNumber
         );
 
-        filesToDelete = [
-          ...audios.map((file) => ({
-            bucket: this.buckets.MAIN,
-            key: file,
-            type: "audio",
-          })),
-        ];
-      }
-
-      const deleteResults = [];
-      for (const file of filesToDelete) {
-        try {
-          const result = await this.deleteFromBucket(file.bucket, file.key);
-          deleteResults.push({ ...result, type: file.type });
-        } catch (error) {
-          console.error(`Failed to delete ${file.key}:`, error.message);
-          deleteResults.push({
-            success: false,
-            key: file.key,
-            error: error.message,
-          });
-        }
+        const results = await this.deleteFromBucket(audios);
+        deleteResults = results;
       }
 
       const successfulDeletes = deleteResults.filter((r) => r.success).length;

@@ -212,7 +212,7 @@ class IPCHandlers {
       await this.fileManager.cleanLastImport();
 
       const timestamp = Math.floor(Date.now() / 1000);
-      const secret = process.env.APP_SECRET;
+      const secret = process.env.IMPORT_APP_SECRET;
       const hmac = crypto
         .createHmac("sha256", secret)
         .update(`${timestamp}`)
