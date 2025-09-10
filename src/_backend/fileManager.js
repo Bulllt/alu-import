@@ -1063,10 +1063,12 @@ class FileManager {
       await this.moveToImported(collectionPath);
       updateProgress(95);
 
-      const updatedFiles = files.map((file) => ({
-        ...file,
-        path: `/original/dm/${file.s3Hash}`,
-      }));
+      const updatedFiles = files
+        .filter((file) => file.s3Hash)
+        .map((file) => ({
+          ...file,
+          path: `/original/dm/${file.s3Hash}`,
+        }));
 
       const token = this.generateToken();
       await this.sendToDatabase(updatedFiles, token);
@@ -1101,12 +1103,11 @@ class FileManager {
               documentFolder
             );
 
+            file.s3Hash = hashedFilename;
             processedFolders.add(documentPath);
             processedFiles += filesInsideFolder.length;
             progressCallback((processedFiles / totalFiles) * 0.8);
           }
-
-          file.s3Hash = hashedFilename;
         } else {
           const hashedFilename = await this.processSinglePageDocument(file);
 
@@ -1132,11 +1133,20 @@ class FileManager {
     const pdfPages = [];
     const textContents = {};
 
-    for (let i = 0; i < imageFiles.length; i++) {
+    const firstImagePath = path.join(documentPath, imageFiles[0]);
+    const { pdfPath, textContent } = await this.processImageWithOCR(
+      firstImagePath,
+      true
+    );
+    pdfPages.push(pdfPath);
+    textContents[`page1`] = textContent;
+
+    for (let i = 1; i < imageFiles.length; i++) {
       const imagePath = path.join(documentPath, imageFiles[i]);
 
       const { pdfPath, textContent } = await this.processImageWithOCR(
-        imagePath
+        imagePath,
+        false
       );
       pdfPages.push(pdfPath);
       textContents[`page${i + 1}`] = textContent;
@@ -1188,7 +1198,8 @@ class FileManager {
       const jsonPath = path.join(this.nas2400, prefix, `${documentBase}.json`);
 
       const { pdfPath, textContent } = await this.processImageWithOCR(
-        file.path
+        file.path,
+        true
       );
 
       await fs.move(pdfPath, originalPdfPath);
@@ -1207,7 +1218,7 @@ class FileManager {
     }
   }
 
-  async processImageWithOCR(imagePath) {
+  async processImageWithOCR(imagePath, createThumbnail = true) {
     const directory = path.dirname(imagePath);
     const baseName = path.basename(imagePath, path.extname(imagePath));
     const outputBase = path.join(directory, baseName);
@@ -1225,20 +1236,22 @@ class FileManager {
       "pdf txt",
     ].join(" ");
 
-    const createThumbnail = [
-      "magick convert",
-      `"${imagePath}"`,
-      "-resize 400x400^>",
-      "-quality 70%",
-      `"${temp400pxPath}"`,
-    ].join(" ");
-
     try {
       execSync(tesseractCommand, { stdio: "pipe" });
-      execSync(createThumbnail, { stdio: "pipe" });
 
-      await this.s3Manager.sendToBucket(null, temp400pxPath, "documentos");
-      await fs.remove(temp400pxPath);
+      if (createThumbnail) {
+        const createThumbnailCommand = [
+          "magick convert",
+          `"${imagePath}"`,
+          "-resize 400x400^>",
+          "-quality 70%",
+          `"${temp400pxPath}"`,
+        ].join(" ");
+
+        execSync(createThumbnailCommand, { stdio: "pipe" });
+        await this.s3Manager.sendToBucket(null, temp400pxPath, "documentos");
+        await fs.remove(temp400pxPath);
+      }
 
       let textContent = "";
       try {
@@ -1329,7 +1342,7 @@ class FileManager {
 
       const hash = await this.generateFileHash(outputPath);
       const baseName = path.basename(outputPath, path.extname(outputPath));
-      const hashedFilename = `${baseName}_${hash}`;
+      const hashedFilename = `${baseName}_01_${hash}`;
 
       await this.s3Manager.sendToBucket(
         outputPath,

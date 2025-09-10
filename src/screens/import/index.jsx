@@ -27,6 +27,7 @@ import "./style.css";
 export default function Import() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { showStatusMessage } = useContext(StatusContext);
   const [files, setFiles] = useState([]);
   const [csvData, setCSVData] = useState(null);
   const [editingCell, setEditingCell] = useState(null);
@@ -96,6 +97,7 @@ export default function Import() {
       header: "Razón de censura",
       type: "text",
       editable: true,
+      dependsOn: "censored",
     },
     { id: "published", header: "Publicado", type: "boolean", editable: true },
   ]);
@@ -197,6 +199,8 @@ export default function Import() {
           censored: false,
           censored_reason: null,
           published: false,
+          document:
+            location.state?.collectionType === "documentos" ? true : false,
         });
 
         const newFiles = Array.isArray(data)
@@ -248,11 +252,27 @@ export default function Import() {
     const column = columns.find((col) => col.id === columnId);
     if (!column.editable) return;
 
+    if (column.dependsOn) {
+      const file = files.find((f) => f.id === fileId);
+      if (!file) return;
+      if (!file.censored) {
+        showStatusMessage(
+          "error",
+          "Activa 'Censurado' para habilitar la edición de la razón"
+        );
+        return;
+      }
+    }
+
     if (column.type === "boolean") {
       setEditingCell(null);
       const updatedFiles = files.map((file) => {
         if (file.id === fileId) {
-          return { ...file, [columnId]: !file[columnId] };
+          const newValue = !file[columnId];
+          if (columnId === "censored" && !newValue) {
+            return { ...file, [columnId]: newValue, censored_reason: "" };
+          }
+          return { ...file, [columnId]: newValue };
         }
         return file;
       });
@@ -831,6 +851,7 @@ export default function Import() {
 
   // Filtering
   const filteredData = files.filter((file) => {
+    if (file.document && !file.id.endsWith("_01")) return false;
     if (!filterText) return true;
 
     return columns.some((column) => {
@@ -992,13 +1013,13 @@ export default function Import() {
       ubications_id: file.ubications_id || 360,
       created_at: `${nowYear}-${nowMonth}-${nowDay} ${hours}:${minutes}:${seconds}`,
       updated_at: `${nowYear}-${nowMonth}-${nowDay} ${hours}:${minutes}:${seconds}`,
+      document: file.document,
       ...csvValues,
     };
 
     return valuesToSend;
   };
 
-  const { showStatusMessage } = useContext(StatusContext);
   const handleImport = async () => {
     const validationErrors = validateFilesForImport(files);
 

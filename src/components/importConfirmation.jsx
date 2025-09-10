@@ -53,6 +53,18 @@ export default function ImportConfirmation({
     }
   };
 
+  const getImportCount = () => {
+    let count = 0;
+    for (const file of filesToImport) {
+      if (file.document && file.n_ic == "01") {
+        count++;
+      } else if (!file.document) {
+        count++;
+      }
+    }
+    return count;
+  };
+
   const footer = (
     <div className="buttonsContainer">
       <Button
@@ -81,36 +93,44 @@ export default function ImportConfirmation({
       dismissableMask
     >
       <div className="modalContainer">
-        <h4>Se importarán {filesToImport.length} archivos:</h4>
+        <h4>Se importarán {getImportCount()} archivos:</h4>
         <div className="filesContainer">
-          {filesToImport.map((file, index) => (
-            <div key={index} className="file">
-              <div className="fileName">
-                {file.code}_{file.n_object}_{file.n_ic}
+          {filesToImport
+            .filter((file) => {
+              if (!file.document) return true;
+              if (file.document && file.n_ic == "01") {
+                return true;
+              }
+              return false;
+            })
+            .map((file, index) => (
+              <div key={index} className="file">
+                <div className="fileName">
+                  {file.code}_{file.n_object}_{file.n_ic}
+                </div>
+                <div className="fileDetails">
+                  <span>Colección: {file.collection_id}</span>
+                  <span>Descripción: {file.description}</span>
+                  <span>Elementos: {file.elements}</span>
+                  <span>Fecha: {formatDate(file)}</span>
+                  <span>
+                    Ubicación objeto (ID):{" "}
+                    {file.ubicacion_id !== 1 ? file.ubicacion_id : "null"}
+                  </span>
+                  <span>
+                    Comuna (ID):{" "}
+                    {file.communes_id !== 128 ? file.communes_id : "null"}
+                  </span>
+                  <span>
+                    Ubicación (ID):{" "}
+                    {file.ubications_id !== 360 ? file.ubications_id : "null"}
+                  </span>
+                  <span>Censurado: {file.censored ? "Sí" : "No"}</span>
+                  <span>Razón de censura: {file.censored ? "Sí" : "No"}</span>
+                  <span>Publicado: {file.published ? "Sí" : "No"}</span>
+                </div>
               </div>
-              <div className="fileDetails">
-                <span>Colección: {file.collection_id}</span>
-                <span>Descripción: {file.description}</span>
-                <span>Elementos: {file.elements}</span>
-                <span>Fecha: {formatDate(file)}</span>
-                <span>
-                  Ubicación objeto (ID):{" "}
-                  {file.ubicacion_id !== 1 ? file.ubicacion_id : "null"}
-                </span>
-                <span>
-                  Comuna (ID):{" "}
-                  {file.communes_id !== 128 ? file.communes_id : "null"}
-                </span>
-                <span>
-                  Ubicación (ID):{" "}
-                  {file.ubications_id !== 360 ? file.ubications_id : "null"}
-                </span>
-                <span>Censurado: {file.censored ? "Sí" : "No"}</span>
-                <span>Razón de censura: {file.censored ? "Sí" : "No"}</span>
-                <span>Publicado: {file.published ? "Sí" : "No"}</span>
-              </div>
-            </div>
-          ))}
+            ))}
         </div>
       </div>
     </Dialog>
