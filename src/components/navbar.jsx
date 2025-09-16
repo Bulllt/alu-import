@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import WarningMessage from "./warningMessage.jsx";
+import { useTheme } from "../context/themeContext.jsx";
 
 import { FaFolderOpen, FaFileImport } from "react-icons/fa";
 import { BsCollectionFill } from "react-icons/bs";
@@ -16,6 +17,7 @@ export default function Navbar() {
   const [showExitButton, setShowExitButton] = useState(false);
   const [folderPath, setFolderPath] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -146,6 +148,12 @@ export default function Navbar() {
               <FaFileImport className="navbarIcon" />
               <span>Importar</span>
             </NavLink>
+          </li>
+
+          <li className="navbarItem">
+            <button onClick={toggleTheme} className="themeToggle">
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
           </li>
         </ul>
       </nav>

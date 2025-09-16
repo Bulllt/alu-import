@@ -9,3 +9,15 @@
   --card-shadow-hover: 0 8px 16px rgba(255, 255, 255, 0.2);
   --transition: all 0.3s ease;
 }
+
+[data-theme="light"] {
+  --primary-color: #e3e4e6;
+  --secondary-color: #4a6b8a;
+  --tertiary-color: #d1d5db;
+  --accent-color: #25a075;
+  --text-color: #1a1a1a;
+  --background: #f8f9fa;
+  --card-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  --card-shadow-hover: 0 8px 16px rgba(0, 0, 0, 0.15);
+  --transition: all 0.3s ease;
+}

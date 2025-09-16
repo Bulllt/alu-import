@@ -63,3 +63,14 @@
   background-color: transparent;
   border: 2px solid transparent;
 }
+
+.themeToggle {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+  transition: var(--transition);
+  background-color: var(--primary-color);
+}

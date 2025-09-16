@@ -6,6 +6,7 @@ import { addLocale } from "primereact/api";
 import "./App.css";
 import Layout from "./Layout.jsx";
 import { StatusProvider } from "../context/statusContext.jsx";
+import { ThemeProvider } from "../context/themeContext.jsx";
 import MainStatusListener from "../components/mainStatusListener.jsx";
 
 import SelectFolder from "../screens/selectFolder/index.jsx";
@@ -73,18 +74,23 @@ export default function App() {
 
   return (
     <StatusProvider>
-      <PrimeReactProvider value={{ locale: "es" }}>
-        <MainStatusListener />
-        <Router>
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="/" element={<SelectFolder />} />
-              <Route path="/selectCollection" element={<SelectCollection />} />
-              <Route path="/import" element={<Import />} />
-            </Route>
-          </Routes>
-        </Router>
-      </PrimeReactProvider>
+      <ThemeProvider>
+        <PrimeReactProvider value={{ locale: "es" }}>
+          <MainStatusListener />
+          <Router>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="/" element={<SelectFolder />} />
+                <Route
+                  path="/selectCollection"
+                  element={<SelectCollection />}
+                />
+                <Route path="/import" element={<Import />} />
+              </Route>
+            </Routes>
+          </Router>
+        </PrimeReactProvider>
+      </ThemeProvider>
     </StatusProvider>
   );
 }
