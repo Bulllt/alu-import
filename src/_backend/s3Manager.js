@@ -34,6 +34,10 @@ class S3Manager {
   }
 
   async uploadToBucket(filePath, folder, key) {
+    if (!filePath) {
+      throw new Error("filePath is required but was null/undefined");
+    }
+
     try {
       const fileBuffer = await fs.readFile(filePath);
       const contentType = mime.lookup(filePath) || "application/octet-stream";
