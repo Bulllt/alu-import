@@ -1,6 +1,5 @@
 const fs = require("fs-extra");
 const path = require("path");
-const chokidar = require("chokidar");
 const { net } = require("electron");
 require("dotenv").config({
   path: path.join(process.resourcesPath, ".env"),
@@ -17,7 +16,6 @@ const variablesConfig = require("./variablesConfig");
 class FileManager {
   constructor(sendStatusToRenderer, configPath) {
     // Initial file processing
-    this.watchers = new Map();
     this.sendStatusToRenderer = sendStatusToRenderer || (() => {});
     this.configPath = configPath;
     this.codePrefix = null;
@@ -83,19 +81,9 @@ class FileManager {
     fs.ensureDirSync(this.nas2400);
   }
 
-  initializeCodePrefix(collectionPath) {
-    const collectionFolder = path.basename(collectionPath);
-    this.codePrefix = collectionFolder.split("_")[0];
-
-    const config = this.readConfig();
-    this.lastInventoryNumber = config.inventoryNumber;
-  }
-
   // Process of collections and files
   async createWatcher(rootFolderPath) {
     try {
-      this.watchers.forEach((watcher) => watcher.close());
-      this.watchers.clear();
       this.pendingCollections = [];
 
       const fileTypes = await fs.readdir(rootFolderPath);
@@ -133,54 +121,12 @@ class FileManager {
     }
   }
 
-  async startCollectionProcessing(collectionPath) {
+  async startCollectionProcessing(collectionPath, codePrefix) {
     try {
-      const initialFiles = await this.processCollection(collectionPath);
-      if (initialFiles.length > 0 && this.mainWindow) {
-        this.mainWindow.webContents.send("file-processed", initialFiles);
-      }
+      const config = this.readConfig();
+      this.lastInventoryNumber = config.inventoryNumber;
+      this.codePrefix = codePrefix;
 
-      const watcher = chokidar.watch(collectionPath, {
-        ignored: /(^|[\/\\])\../,
-        persistent: true,
-        ignoreInitial: true,
-        awaitWriteFinish: {
-          stabilityThreshold: 1000,
-          pollInterval: 100,
-        },
-      });
-
-      watcher
-        .on("add", async (filePath) => {
-          const processedFile = await this.processFile(filePath);
-          if (processedFile && this.mainWindow) {
-            this.mainWindow.webContents.send("file-processed", processedFile);
-          }
-        })
-        .on("addDir", async (dirPath) => {
-          const processedFiles = await this.processFolder(dirPath);
-          if (processedFiles && this.mainWindow) {
-            this.mainWindow.webContents.send("file-processed", processedFiles);
-          }
-        })
-        .on("error", (error) => {
-          this.sendStatusToRenderer("error", `Watcher error: ${error.message}`);
-        });
-
-      this.watchers.set(collectionPath, watcher);
-      return true;
-    } catch (error) {
-      this.sendStatusToRenderer(
-        "error",
-        "Error al procesar (startCollectionProcessing)"
-      );
-      return false;
-    }
-  }
-
-  async processCollection(collectionPath) {
-    try {
-      await this.initializeCodePrefix(collectionPath);
       const items = await fs.readdir(collectionPath);
       const processedItems = [];
 
@@ -218,11 +164,14 @@ class FileManager {
         }
       }
 
-      return processedItems;
+      if (processedItems.length > 0 && this.mainWindow) {
+        this.mainWindow.webContents.send("file-processed", processedItems);
+      }
+      return true;
     } catch (error) {
       this.sendStatusToRenderer(
         "error",
-        "Error al procesar (processCollection)"
+        "Error al procesar (startCollectionProcessing)"
       );
       throw error;
     }
@@ -474,9 +423,6 @@ class FileManager {
     };
 
     try {
-      const watcher = this.watchers.get(collectionPath);
-      await watcher.close();
-      this.watchers.delete(collectionPath);
       updateProgress(10);
 
       await this.processAndConvertImages(files, (fraction) => {
@@ -682,9 +628,6 @@ class FileManager {
     };
 
     try {
-      const watcher = this.watchers.get(collectionPath);
-      await watcher.close();
-      this.watchers.delete(collectionPath);
       updateProgress(5);
 
       await this.convertToMovAndBackup(files, collectionPath, (fraction) => {
@@ -886,9 +829,6 @@ class FileManager {
     };
 
     try {
-      const watcher = this.watchers.get(collectionPath);
-      await watcher.close();
-      this.watchers.delete(collectionPath);
       updateProgress(10);
 
       await this.processAndConvertAudios(files, (fraction) => {
@@ -1048,9 +988,6 @@ class FileManager {
     };
 
     try {
-      const watcher = this.watchers.get(collectionPath);
-      await watcher.close();
-      this.watchers.delete(collectionPath);
       updateProgress(10);
 
       await this.processAndConvertDocuments(files, collectionPath, (fraction) =>
@@ -1514,19 +1451,6 @@ class FileManager {
         `Cierra los archivos dentro de la carpeta ${collection} dentro de la carpeta de importados`
       );
       throw error;
-    }
-  }
-
-  cleanup() {
-    try {
-      this.watchers.forEach((watcher) => watcher.close());
-      this.watchers.clear();
-    } catch (error) {
-      this.sendStatusToRenderer(
-        "error",
-        "Error al limpiar los monitores de carpeta"
-      );
-      console.error("Error cleaning up watchers:", error);
     }
   }
 }

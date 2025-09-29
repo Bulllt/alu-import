@@ -1065,11 +1065,10 @@ export default function Import() {
       setLoadingModalVisible(true);
       setImportProgress(0);
 
-      const type = files[0].path.split("\\");
       await window.electronAPI.importProcessedFiles(
         filesReadyToImport,
         location.state?.collectionPath,
-        type[3]
+        location.state?.collectionType
       );
       setFiles([]);
       localStorage.removeItem("selectedCollection");

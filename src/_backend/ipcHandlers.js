@@ -140,8 +140,8 @@ class IPCHandlers {
 
   async handleStartCollectionProcessing(_, collectionPath) {
     try {
-      const collectionFolder = path.basename(collectionPath);
-      const codePrefix = collectionFolder.split("_")[0];
+      const pathLength = collectionPath.split("\\").length;
+      const codePrefix = collectionPath.split("\\")[pathLength - 2];
       const lastInventoryNumber = await this.handleFetchLastInventoryNumber(
         codePrefix
       );
@@ -154,7 +154,8 @@ class IPCHandlers {
       this.writeConfig(updatedConfig);
 
       const success = await this.fileManager.startCollectionProcessing(
-        collectionPath
+        collectionPath,
+        codePrefix
       );
 
       if (!success) {
@@ -384,7 +385,6 @@ class IPCHandlers {
   }
 
   cleanup() {
-    this.fileManager.cleanup();
     for (const worker of this.workerPool) {
       worker.terminate();
     }
