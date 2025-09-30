@@ -222,12 +222,14 @@ export default function Import() {
       const { data, scope, folderName } = csvInfo;
 
       const hasDateParts = data.some((row) => row.year);
-      const updatedColumns = columns.filter((col) => {
-        if (col.id === "date" && hasDateParts) return false;
-        return true;
-      });
 
-      setColumns(updatedColumns);
+      setColumns((prevColumns) =>
+        prevColumns.filter((col) => {
+          if (col.id === "date" && hasDateParts) return false;
+          return true;
+        })
+      );
+
       setCsvDatasets((prev) => {
         const existingIndex = prev.findIndex(
           (dataset) =>
@@ -285,9 +287,25 @@ export default function Import() {
       const updatedFiles = files.map((file) => {
         if (file.id === fileId) {
           const newValue = !file[columnId];
-          if (columnId === "censored" && !newValue) {
-            return { ...file, [columnId]: newValue, censored_reason: "" };
+
+          if (columnId === "censored") {
+            return {
+              ...file,
+              censored: newValue,
+              censored_reason: newValue ? file.censored_reason : "",
+              published: newValue ? false : file.published,
+            };
           }
+
+          if (columnId === "published") {
+            return {
+              ...file,
+              published: newValue,
+              censored: newValue ? false : file.censored,
+              censored_reason: newValue ? "" : file.censored_reason,
+            };
+          }
+
           return { ...file, [columnId]: newValue };
         }
         return file;
