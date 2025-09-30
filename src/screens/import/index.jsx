@@ -29,7 +29,7 @@ export default function Import() {
   const navigate = useNavigate();
   const { showStatusMessage } = useContext(StatusContext);
   const [files, setFiles] = useState([]);
-  const [csvData, setCSVData] = useState(null);
+  const [csvDatasets, setCsvDatasets] = useState([]);
   const [editingCell, setEditingCell] = useState(null);
   const [editValues, setEditValues] = useState({});
   const [filterText, setFilterText] = useState("");
@@ -201,6 +201,7 @@ export default function Import() {
           published: false,
           document:
             location.state?.collectionType === "documentos" ? true : false,
+          csvContext: file.csvContext,
         });
 
         const newFiles = Array.isArray(data)
@@ -215,8 +216,10 @@ export default function Import() {
 
     const fileCleanup = window.electronAPI.onFileProcessed(onFileProcessed);
 
-    const onCSVFile = (data) => {
+    const onCSVFile = (csvInfo) => {
       if (!isMounted) return;
+
+      const { data, scope, folderName } = csvInfo;
 
       const hasDateParts = data.some((row) => row.year);
       const updatedColumns = columns.filter((col) => {
@@ -225,7 +228,20 @@ export default function Import() {
       });
 
       setColumns(updatedColumns);
-      setCSVData(data);
+      setCsvDatasets((prev) => {
+        const existingIndex = prev.findIndex(
+          (dataset) =>
+            dataset.scope === scope && dataset.folderName === folderName
+        );
+
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = { data, scope, folderName };
+          return updated;
+        } else {
+          return [...prev, { data, scope, folderName }];
+        }
+      });
     };
 
     const csvCleanup = window.electronAPI.onCSVFile(onCSVFile);
@@ -936,6 +952,7 @@ export default function Import() {
         break;
     }
 
+    const csvData = findCSVDataForFile(file, csvDatasets);
     const csvRow = csvData?.[0] || {};
 
     const monthMap = {
@@ -1018,6 +1035,35 @@ export default function Import() {
     };
 
     return valuesToSend;
+  };
+
+  const findCSVDataForFile = (file, csvDatasets) => {
+    if (!csvDatasets || csvDatasets.length === 0) {
+      return null;
+    }
+
+    const fileFolderContext = file.csvContext;
+
+    if (fileFolderContext) {
+      const folderCSV = csvDatasets.find(
+        (dataset) =>
+          dataset.scope === "folder" && dataset.folderName === fileFolderContext
+      );
+
+      if (folderCSV) {
+        return folderCSV.data;
+      }
+    }
+
+    const collectionCSV = csvDatasets.find(
+      (dataset) => dataset.scope === "collection"
+    );
+
+    if (collectionCSV) {
+      return collectionCSV.data;
+    }
+
+    return null;
   };
 
   const handleImport = async () => {

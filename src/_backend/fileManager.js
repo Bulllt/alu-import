@@ -130,27 +130,34 @@ class FileManager {
       const items = await fs.readdir(collectionPath);
       const processedItems = [];
 
-      const csvFile = items.find(
+      let rootCSVData = null;
+      const rootCSVFile = items.find(
         (item) => path.extname(item).toLowerCase() === ".csv"
       );
-      if (csvFile) {
-        const csvPath = path.join(collectionPath, csvFile);
-        const csvData = await this.parseCSVFile(csvPath);
+      if (rootCSVFile) {
+        const csvPath = path.join(collectionPath, rootCSVFile);
+        rootCSVData = await this.parseCSVFile(csvPath);
 
-        if (csvData && this.mainWindow) {
-          this.mainWindow.webContents.send("csv-file", csvData);
+        if (rootCSVData && this.mainWindow) {
+          this.mainWindow.webContents.send("csv-file", {
+            data: rootCSVData,
+            scope: "collection",
+            folderName: collectionPath,
+          });
         }
       }
 
-      for (const item of items) {
-        if (path.extname(item).toLowerCase() === ".csv") continue;
+      const sortedItems = items
+        .filter((item) => path.extname(item).toLowerCase() !== ".csv")
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
+      for (const item of sortedItems) {
         const itemPath = path.join(collectionPath, item);
         const stats = await fs.stat(itemPath);
 
         let result;
         if (stats.isDirectory()) {
-          result = await this.processFolder(itemPath);
+          result = await this.processFolder(itemPath, rootCSVData);
         } else {
           result = await this.processFile(itemPath);
         }
@@ -214,8 +221,6 @@ class FileManager {
     const fileName = path.basename(filePath);
     const collectionPath = path.dirname(filePath);
 
-    if (this.isInventoryFile(fileName)) return null;
-
     if (!this.originalNames.has(collectionPath)) {
       this.originalNames.set(collectionPath, []);
     }
@@ -244,6 +249,7 @@ class FileManager {
         newName: newFileName,
         inventoryCode: newInventoryCode,
         path: newFilePath,
+        csvContext: null,
       };
     } catch (error) {
       this.lastInventoryNumber--;
@@ -252,11 +258,9 @@ class FileManager {
     }
   }
 
-  async processFolder(folderPath) {
+  async processFolder(folderPath, parentCSVData) {
     const folderName = path.basename(folderPath);
     const collectionPath = path.dirname(folderPath);
-
-    if (this.isInventoryFolder(folderName)) return null;
 
     if (!this.originalNames.has(collectionPath)) {
       this.originalNames.set(collectionPath, []);
@@ -279,8 +283,38 @@ class FileManager {
       const files = await fs.readdir(newFolderPath);
       const processedFiles = [];
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      let folderCSVData = parentCSVData;
+      const folderCSVFile = files.find(
+        (item) => path.extname(item).toLowerCase() === ".csv"
+      );
+      if (folderCSVFile) {
+        const csvName = path.basename(folderCSVFile);
+        this.originalNames.get(collectionPath).push({
+          currentName: csvName,
+          originalName: csvName,
+          parentFolder: newFolderName,
+          isDirectory: false,
+        });
+
+        const csvPath = path.join(newFolderPath, folderCSVFile);
+        const localCSVData = await this.parseCSVFile(csvPath);
+
+        if (localCSVData && this.mainWindow) {
+          this.mainWindow.webContents.send("csv-file", {
+            data: localCSVData,
+            scope: "folder",
+            folderName: newFolderName,
+          });
+        }
+        folderCSVData = localCSVData;
+      }
+
+      const sortedFiles = files
+        .filter((file) => path.extname(file).toLowerCase() !== ".csv")
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+
+      for (let i = 0; i < sortedFiles.length; i++) {
+        const file = sortedFiles[i];
         const filePath = path.join(newFolderPath, file);
         const ext = path.extname(filePath);
         const sequenceNum = (i + 1).toString().padStart(2, "0");
@@ -301,6 +335,7 @@ class FileManager {
           newName: newFileName,
           inventoryCode: newInventoryCode,
           path: newFilePath,
+          csvContext: newFolderName,
         });
       }
 
@@ -327,13 +362,6 @@ class FileManager {
         await new Promise((resolve) => setTimeout(resolve, delay * (i + 1)));
       }
     }
-  }
-
-  isInventoryFolder(folderName) {
-    return /^[A-Z]{1,3}_\d{7}$/.test(folderName);
-  }
-  isInventoryFile(fileName) {
-    return /^[A-Z]{1,3}_\d{7}_\d{2}\.\w{3,4}$/.test(fileName);
   }
 
   async executeRollback(collectionPath) {
