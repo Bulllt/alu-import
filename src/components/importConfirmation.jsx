@@ -65,6 +65,68 @@ export default function ImportConfirmation({
     return count;
   };
 
+  const fieldMappings = {
+    collection_id: "Colección",
+    container_annotations: "container_annotations",
+    object_annotations: "object_annotations",
+    title: "Título",
+    description: "Descripción",
+    history: "Historia",
+    information: "Información",
+    peoples: "Personas",
+    elements: "Elementos",
+    streets: "Calles",
+    censored: "Censurado",
+    censored_reason: "Razón de censura",
+    published: "Publicado",
+    ubicacion_id: "Ubicación objeto",
+    techniques_id: "Técnica",
+    sizes_id: "Tamaño",
+    communes_id: "Comuna",
+    types_id: "Tipo",
+    locations_id: "Localización",
+    ubications_id: "Ubicación",
+  };
+
+  const excludedKeys = new Set([
+    "document",
+    "code",
+    "n_object",
+    "n_ic",
+    "year",
+    "month",
+    "day",
+    "path",
+    "created_at",
+    "updated_at",
+  ]);
+
+  const formatFieldValue = (key, value) => {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+
+    if (key === "censored" || key === "published") {
+      return value ? "Sí" : "No";
+    }
+
+    if (key === "ubicacion_id" && value === 1) return null;
+    if (key === "communes_id" && value === 128) return null;
+    if (key === "ubications_id" && value === 360) return null;
+
+    if (key === "types_id") {
+      const typeMap = {
+        1: "Imagen",
+        2: "Película",
+        3: "Documento",
+        4: "Audio",
+      };
+      return typeMap[value] || value;
+    }
+
+    return value;
+  };
+
   const footer = (
     <div className="buttonsContainer">
       <Button
@@ -109,25 +171,27 @@ export default function ImportConfirmation({
                   {file.code}_{file.n_object}_{file.n_ic}
                 </div>
                 <div className="fileDetails">
-                  <span>Colección: {file.collection_id}</span>
-                  <span>Descripción: {file.description}</span>
-                  <span>Elementos: {file.elements}</span>
-                  <span>Fecha: {formatDate(file)}</span>
-                  <span>
-                    Ubicación objeto (ID):{" "}
-                    {file.ubicacion_id !== 1 ? file.ubicacion_id : "null"}
-                  </span>
-                  <span>
-                    Comuna (ID):{" "}
-                    {file.communes_id !== 128 ? file.communes_id : "null"}
-                  </span>
-                  <span>
-                    Ubicación (ID):{" "}
-                    {file.ubications_id !== 360 ? file.ubications_id : "null"}
-                  </span>
-                  <span>Censurado: {file.censored ? "Sí" : "No"}</span>
-                  <span>Razón de censura: {file.censored ? "Sí" : "No"}</span>
-                  <span>Publicado: {file.published ? "Sí" : "No"}</span>
+                  <span data-label="Fecha" data-value={formatDate(file)} />
+                  {Object.entries(file)
+                    .filter(([key, value]) => {
+                      if (excludedKeys.has(key)) return false;
+                      const formattedValue = formatFieldValue(key, value);
+                      return (
+                        formattedValue !== null && formattedValue !== undefined
+                      );
+                    })
+                    .map(([key, value]) => {
+                      const displayName = fieldMappings[key] || key;
+                      const formattedValue = formatFieldValue(key, value);
+
+                      return (
+                        <span
+                          key={key}
+                          data-label={displayName}
+                          data-value={formattedValue}
+                        />
+                      );
+                    })}
                 </div>
               </div>
             ))}
