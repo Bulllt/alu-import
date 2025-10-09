@@ -46,9 +46,9 @@ app.whenReady().then(() => {
   const cleanup = async () => {
     try {
       const tempDir = path.join(require("os").tmpdir(), "alu-thumbnails");
-      if (await fs.pathExists(tempDir)) {
-        await fs.remove(tempDir);
-      }
+      const tempDirSecond = path.join(require("os").tmpdir(), "400px");
+      if (await fs.pathExists(tempDir)) await fs.remove(tempDir);
+      if (await fs.pathExists(tempDirSecond)) await fs.remove(tempDirSecond);
       setupFileHandlers.cleanup();
     } catch (error) {
       console.error("Cleanup failed:", error);

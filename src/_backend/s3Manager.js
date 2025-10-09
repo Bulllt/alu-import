@@ -18,9 +18,8 @@ class S3Manager {
         secretAccessKey: variablesConfig.AWS_SECRET_ACCESS_KEY,
       },
       forcePathStyle: true,
+      endpoint: variablesConfig.AWS_URL,
     };
-
-    s3Config.endpoint = variablesConfig.AWS_URL;
 
     this.s3 = new S3Client(s3Config);
 
@@ -48,7 +47,6 @@ class S3Manager {
         Key: fullKey,
         Body: fileBuffer,
         ContentType: contentType,
-        ACL: "public-read",
       });
 
       await this.s3.send(command);
@@ -146,7 +144,17 @@ class S3Manager {
 
       return results;
     } catch (error) {
-      console.error(`Error deleting from ${this.bucket}:`, error.message);
+      if (error.name === "NoSuchKey" || error.code === "NoSuchKey") {
+        console.log(`   ℹ️  Files already deleted or don't exist - continuing`);
+        return keys.map((key) => ({
+          success: false,
+          bucket: this.bucket,
+          key: key,
+          error: "Key does not exist",
+          code: "NoSuchKey",
+        }));
+      }
+
       throw error;
     }
   }
@@ -241,8 +249,11 @@ class S3Manager {
 
       return true;
     } catch (error) {
-      console.error("Error in cleanLastImportFromS3:", error);
-      throw error;
+      console.error(`\n💥 S3 CLEANUP FAILED:`);
+      console.error(`   - Error: ${error.message}`);
+      console.error(`   - Code: ${error.code}`);
+      console.error(`   - Stack: ${error.stack}`);
+      return false;
     }
   }
 }

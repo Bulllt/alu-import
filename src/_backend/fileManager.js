@@ -523,7 +523,7 @@ class FileManager {
       await fs.copy(filePath, nasOriginalPath);
 
       const convert2400Command = [
-        "magick convert",
+        "magick",
         `"${filePath}"`,
         "-auto-level",
         "-auto-gamma",
@@ -531,15 +531,15 @@ class FileManager {
         "-gravity center",
         "-crop 85%x85%+0+0 +repage",
         "-contrast-stretch 0.2%x0.2%",
-        "-resize 2400x2400^>",
+        "-resize 2400x2400",
         "-quality 85%",
         `"${nas2400Path}"`,
       ].join(" ");
 
       const convert400Command = [
-        "magick convert",
+        "magick",
         `"${filePath}"`,
-        "-resize 400x400^>",
+        "-resize 400x400",
         "-quality 70%",
         `"${temp400pxPath}"`,
       ].join(" ");
@@ -1206,9 +1206,9 @@ class FileManager {
 
       if (createThumbnail) {
         const createThumbnailCommand = [
-          "magick convert",
+          "magick",
           `"${imagePath}"`,
-          "-resize 400x400^>",
+          "-resize 400x400",
           "-quality 70%",
           `"${temp400pxPath}"`,
         ].join(" ");
