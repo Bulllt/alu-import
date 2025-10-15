@@ -959,40 +959,11 @@ class FileManager {
         throw error;
       }
 
-      const vttContent = this.formatDeepgramToVtt(result);
-
-      await fs.writeFile(vttPath, vttContent);
+      await fs.writeFile(vttPath, result);
     } catch (error) {
       console.error("Deepgram transcription error:", error);
       throw error;
     }
-  }
-
-  formatDeepgramToVtt(transcription) {
-    let vttContent = "WEBVTT\n\n";
-
-    transcription.results.channels[0].alternatives[0].words.forEach(
-      (word, index) => {
-        if (
-          index === 0 ||
-          word.speaker !==
-            transcription.results.channels[0].alternatives[0].words[index - 1]
-              .speaker
-        ) {
-          vttContent += `\n${word.speaker}:\n`;
-        }
-
-        const startTime = new Date(word.start * 1000)
-          .toISOString()
-          .slice(11, 23);
-        const endTime = new Date(word.end * 1000).toISOString().slice(11, 23);
-
-        vttContent += `${startTime} --> ${endTime}\n`;
-        vttContent += `${word.punctuated_word || word.word}\n\n`;
-      }
-    );
-
-    return vttContent;
   }
 
   // DOCUMENT PROCESS SECTION
