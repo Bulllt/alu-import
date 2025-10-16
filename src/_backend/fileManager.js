@@ -954,16 +954,39 @@ class FileManager {
           utterances: true,
         });
 
-      if (error) {
-        console.error("Deepgram error:", error);
-        throw error;
-      }
-
-      await fs.writeFile(vttPath, result);
+      const vttContent = this.formatDeepgramToVtt(result);
+      await fs.writeFile(vttPath, vttContent);
     } catch (error) {
       console.error("Deepgram transcription error:", error);
       throw error;
     }
+  }
+
+  formatDeepgramToVtt(transcription) {
+    let vttContent = "WEBVTT\n\n";
+
+    if (transcription.results?.utterances) {
+      transcription.results.utterances.forEach((utterance, index) => {
+        const startTime = this.formatTimestamp(utterance.start);
+        const endTime = this.formatTimestamp(utterance.end);
+
+        vttContent += `${index + 1}\n`;
+        vttContent += `${startTime} --> ${endTime}\n`;
+        vttContent += `Speaker ${utterance.speaker}: ${utterance.transcript}\n\n`;
+      });
+    }
+
+    return vttContent;
+  }
+
+  formatTimestamp(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = (seconds % 60).toFixed(3);
+
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}:${secs.padStart(6, "0")}`;
   }
 
   // DOCUMENT PROCESS SECTION
