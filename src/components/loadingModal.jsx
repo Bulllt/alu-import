@@ -4,7 +4,7 @@ import { FaSpinner } from "react-icons/fa";
 import "./styles/loadingModal.css";
 
 export default function LoadingModal({ progress }) {
-  const isComplete = progress === 100;
+  const isComplete = progress.percent === 100;
 
   return (
     <div className="loadingModal">
@@ -19,15 +19,17 @@ export default function LoadingModal({ progress }) {
             size={40}
           />
 
+          <div>{progress.stage}</div>
+
           <div className="progressContainer">
             <div
               className={`progressBar ${isComplete ? "complete" : ""}`}
-              style={{ width: `${progress}%` }}
+              style={{ width: `${progress.percent}%` }}
             ></div>
           </div>
 
           <span className="progressText">
-            {progress}% completado
+            {progress.percent}%
             {isComplete && <span className="checkmark"> ✓</span>}
           </span>
         </div>

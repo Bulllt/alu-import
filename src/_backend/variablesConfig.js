@@ -8,15 +8,82 @@ class variablesConfig {
       ? path.join(process.resourcesPath, "watermark.png")
       : path.join(__dirname, "..", "..", "src", "assets", "watermark.png");
 
-    this.workerPath = this.isProduction
-      ? path.join(process.resourcesPath, "worker", "index.js")
+    this.thumbnailWorkerPath = this.isProduction
+      ? path.join(process.resourcesPath, "dist", "thumbnailWorker", "index.js")
       : path.join(
           __dirname,
           "..",
           "..",
           "src",
           "_backend",
+          "workers",
           "thumbnailWorker.js"
+        );
+
+    this.imageWorkerPath = this.isProduction
+      ? path.join(process.resourcesPath, "dist", "imageWorker", "index.js")
+      : path.join(
+          __dirname,
+          "..",
+          "..",
+          "src",
+          "_backend",
+          "workers",
+          "imageWorker.js"
+        );
+
+    this.movieWorkerPath = this.isProduction
+      ? path.join(process.resourcesPath, "dist", "movieWorker", "index.js")
+      : path.join(
+          __dirname,
+          "..",
+          "..",
+          "src",
+          "_backend",
+          "workers",
+          "movieWorker.js"
+        );
+
+    this.ffmpegPath = this.isProduction
+      ? path.join(process.resourcesPath, "ffmpeg.exe")
+      : require("ffmpeg-static");
+
+    this.ffmpegOutputOptions = this.isProduction
+      ? [
+          "-c:v hevc_nvenc",
+          "-cq 1",
+          "-preset slow",
+          "-profile:v main10",
+          "-rc vbr_hq",
+          "-b:v 5000K",
+          "-maxrate 7M",
+          "-refs 4",
+          "-an",
+        ]
+      : ["-c:v hevc_nvenc", "-preset medium", "-cq 23", "-an"];
+
+    this.audioWorkerPath = this.isProduction
+      ? path.join(process.resourcesPath, "dist", "audioWorker", "index.js")
+      : path.join(
+          __dirname,
+          "..",
+          "..",
+          "src",
+          "_backend",
+          "workers",
+          "audioWorker.js"
+        );
+
+    this.documentWorkerPath = this.isProduction
+      ? path.join(process.resourcesPath, "dist", "documentWorker", "index.js")
+      : path.join(
+          __dirname,
+          "..",
+          "..",
+          "src",
+          "_backend",
+          "workers",
+          "documentWorker.js"
         );
 
     this.ffmpegPath = this.isProduction

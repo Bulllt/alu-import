@@ -8,7 +8,7 @@ module.exports = {
     extraResource: [
       ".env",
       "src/assets/watermark.png",
-      "dist/worker",
+      "dist",
       "node_modules/ffmpeg-static/ffmpeg.exe",
     ],
   },

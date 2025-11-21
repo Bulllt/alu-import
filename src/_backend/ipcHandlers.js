@@ -1,5 +1,5 @@
 const FileManager = require("./fileManager");
-const { Worker } = require("worker_threads");
+const WorkerManager = require("./workerManager");
 const { ipcMain, dialog, net, shell } = require("electron");
 const path = require("path");
 const fs = require("fs-extra");
@@ -20,13 +20,7 @@ class IPCHandlers {
       this.sendStatusToRenderer.bind(this),
       this.configPath
     );
-
-    this.workerPool = [];
-    this.maxWorkers = Math.max(
-      2,
-      Math.floor(require("os").cpus().length * 0.7)
-    );
-
+    this.workerManager = new WorkerManager(mainWindow, this.fileManager);
     this.mainWindow = mainWindow;
     this.fileManager.mainWindow = mainWindow;
     this.setupHandlers();
@@ -183,13 +177,13 @@ class IPCHandlers {
   async handleImportProcessedFiles(_, files, collectionPath, fileType) {
     try {
       if (fileType === "imagenes") {
-        await this.fileManager.processImageImport(files, collectionPath);
+        return await this.workerManager.processImages(files, collectionPath);
       } else if (fileType === "peliculas") {
-        await this.fileManager.processMovieImport(files, collectionPath);
+        return await this.workerManager.processMovies(files, collectionPath);
       } else if (fileType === "audios") {
-        await this.fileManager.processAudioImport(files, collectionPath);
+        return await this.workerManager.processAudios(files, collectionPath);
       } else if (fileType === "documentos") {
-        await this.fileManager.processDocumentImport(files, collectionPath);
+        return await this.workerManager.processDocuments(files, collectionPath);
       }
 
       return true;
@@ -244,46 +238,11 @@ class IPCHandlers {
   }
 
   async handleGetImageThumbnail(_, filePath) {
-    if (this.workerPool.length < this.maxWorkers) {
-      return new Promise((resolve) => {
-        const worker = new Worker(variablesConfig.workerPath, {
-          workerData: { filePath },
-        });
-
-        this.workerPool.push(worker);
-
-        worker.on("message", (result) => {
-          worker.terminate();
-          const index = this.workerPool.indexOf(worker);
-          if (index !== -1) {
-            this.workerPool.splice(index, 1);
-          }
-          resolve(result);
-        });
-
-        worker.on("error", (error) => {
-          console.error("Worker error:", error);
-          worker.terminate();
-          const index = this.workerPool.indexOf(worker);
-          if (index !== -1) {
-            this.workerPool.splice(index, 1);
-          }
-          resolve(null);
-        });
-
-        worker.on("exit", (code) => {
-          if (code !== 0) {
-            console.warn(`Worker stopped with exit code ${code}`);
-          }
-          const index = this.workerPool.indexOf(worker);
-          if (index !== -1) {
-            this.workerPool.splice(index, 1);
-          }
-        });
-      });
-    } else {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      return this.handleGetImageThumbnail(_, filePath);
+    try {
+      return await this.workerManager.getThumbnails(filePath);
+    } catch (error) {
+      console.error("Error getting thumbnail:", error);
+      return null;
     }
   }
 
@@ -385,10 +344,7 @@ class IPCHandlers {
   }
 
   cleanup() {
-    for (const worker of this.workerPool) {
-      worker.terminate();
-    }
-    this.workerPool = [];
+    this.workerManager.cleanup();
   }
 }
 

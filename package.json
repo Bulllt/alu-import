@@ -5,7 +5,7 @@
   "description": "My Electron application description",
   "main": ".webpack/main",
   "scripts": {
-    "build-worker": "ncc build src/_backend/thumbnailWorker.js -o dist/worker --minify",
+    "build-workers": "node scripts/buildWorkers.js",
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",

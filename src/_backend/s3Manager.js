@@ -34,7 +34,10 @@ class S3Manager {
 
   async uploadToBucket(filePath, folder, key) {
     if (!filePath) {
-      throw new Error("filePath is required but was null/undefined");
+      console.warn(
+        `filePath is required but was null/undefined for ${folder}/${key}`
+      );
+      return null;
     }
 
     try {
@@ -50,7 +53,8 @@ class S3Manager {
       });
 
       await this.s3.send(command);
-      return true;
+      const publicUrl = `${variablesConfig.AWS_URL}/${this.bucket}/${fullKey}`;
+      return publicUrl;
     } catch (error) {
       console.error(`Error uploading to ${this.bucket}:`, error.message);
       throw error;
@@ -90,13 +94,25 @@ class S3Manager {
           );
         }
       } else if (fileType === "audios") {
-        await this.uploadToBucket(largeFilePath, this.folders.FILES, hash);
+        let audioUrl = null;
 
-        await this.uploadToBucket(
-          smallFilePath,
-          this.folders.FILES,
-          `${hash}.vtt`
-        );
+        if (largeFilePath) {
+          audioUrl = await this.uploadToBucket(
+            largeFilePath,
+            this.folders.FILES,
+            hash
+          );
+        }
+
+        if (smallFilePath) {
+          await this.uploadToBucket(
+            smallFilePath,
+            this.folders.FILES,
+            `${hash}.vtt`
+          );
+        }
+
+        return audioUrl;
       }
 
       return true;

@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs-extra");
 const crypto = require("crypto");
 const { execSync } = require("child_process");
-const variablesConfig = require("./variablesConfig");
+const variablesConfig = require("../variablesConfig");
 const ffmpeg = require("fluent-ffmpeg");
 ffmpeg.setFfmpegPath(variablesConfig.ffmpegPath);
 

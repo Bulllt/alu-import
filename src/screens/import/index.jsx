@@ -57,7 +57,10 @@ export default function Import() {
     ubications_id: [],
   });
 
-  const [importProgress, setImportProgress] = useState(0);
+  const [importProgress, setImportProgress] = useState({
+    percent: 0,
+    stage: "",
+  });
 
   // Column configuration
   const [columns, setColumns] = useState([
@@ -1127,7 +1130,10 @@ export default function Import() {
         "Se esta importando la colección, por favor espera"
       );
       setLoadingModalVisible(true);
-      setImportProgress(0);
+      setImportProgress({
+        percent: 0,
+        stage: "",
+      });
 
       await window.electronAPI.importProcessedFiles(
         filesReadyToImport,
@@ -1146,7 +1152,7 @@ export default function Import() {
   useEffect(() => {
     const cleanup = window.electronAPI.onImportProgress((progress) => {
       setImportProgress(progress);
-      if (progress === 100) {
+      if (progress.percent === 100) {
         setTimeout(() => {
           navigate("/selectCollection");
           setLoadingModalVisible(false);
