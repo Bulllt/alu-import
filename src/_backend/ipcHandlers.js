@@ -5,8 +5,9 @@ const path = require("path");
 const fs = require("fs-extra");
 const crypto = require("crypto");
 const XLSX = require("xlsx");
-require("dotenv").config();
-
+require("dotenv").config({
+  path: path.join(process.resourcesPath, ".env"),
+});
 const variablesConfig = require("./variablesConfig");
 
 class IPCHandlers {
