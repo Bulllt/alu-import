@@ -1,17 +1,22 @@
-import React, { useEffect, useState, useRef, useContext } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useContext,
+  useMemo,
+  useCallback,
+} from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { StatusContext } from "../../context/statusContext.jsx";
 import ImportConfirmation from "../../components/importConfirmation.jsx";
-import DateCell from "../../components/dateCell.jsx";
 import { Chips } from "primereact/chips";
 import { AutoComplete } from "primereact/autocomplete";
-import TableScrollbar from "../../components/tableScrollbar.jsx";
 import ImagePreview from "../../components/imagePreview.jsx";
 import LoadingModal from "../../components/loadingModal.jsx";
+import ExcelImport from "../../components/excelImport.jsx";
 
 import {
   FaWindowClose,
-  FaSearch,
   FaSort,
   FaCheck,
   FaTimes,
@@ -19,6 +24,7 @@ import {
   FaCopy,
   FaEdit,
   FaFileImport,
+  FaFileExcel,
   FaSpinner,
   FaArrowUp,
 } from "react-icons/fa";
@@ -68,28 +74,58 @@ export default function Import() {
     { id: "description", header: "Descripción", type: "text", editable: true },
     { id: "elements", header: "Elementos", type: "chips", editable: true },
     {
-      id: "date",
-      header: "Fecha\u00A0\u00A0\u00A0\u00A0",
+      id: "object_annotations",
+      header: "Anotaciones del objeto",
+      type: "text",
+      editable: true,
+    },
+    {
+      id: "container_annotations",
+      header: "Anotaciones del contenedor",
+      type: "text",
+      editable: true,
+    },
+    {
+      id: "day",
+      header: "Dia",
       type: "date",
       editable: true,
     },
     {
+      id: "month",
+      header: "Mes",
+      type: "date",
+      editable: true,
+    },
+    {
+      id: "year",
+      header: "Año",
+      type: "date",
+      editable: true,
+    },
+    {
+      id: "CA",
+      header: "CA",
+      type: "text",
+      editable: true,
+    },
+    {
       id: "ubicacion_id",
-      header: "Ubicación\u00A0 objeto",
+      header: "Ubicación objeto",
       type: "select",
       options: [],
       editable: true,
     },
     {
       id: "communes_id",
-      header: "Comuna\u00A0\u00A0\u00A0\u00A0",
+      header: "Comuna",
       type: "select",
       options: [],
       editable: true,
     },
     {
       id: "ubications_id",
-      header: "Ubicación\u00A0\u00A0\u00A0",
+      header: "Recinto",
       type: "select",
       options: [],
       editable: true,
@@ -103,7 +139,104 @@ export default function Import() {
       dependsOn: "censored",
     },
     { id: "published", header: "Publicado", type: "boolean", editable: true },
+    {
+      id: "conservation_state",
+      header: "Estado conservado",
+      type: "text",
+      editable: true,
+      hidden: true,
+    },
+    {
+      id: "author",
+      header: "Autor",
+      type: "text",
+      editable: true,
+      hidden: true,
+    },
+    {
+      id: "container_type",
+      header: "Tipo contenedor",
+      type: "text",
+      editable: true,
+      hidden: true,
+    },
+    {
+      id: "container_number",
+      header: "Número contenedor",
+      type: "text",
+      editable: true,
+      hidden: true,
+    },
+    {
+      id: "old_id",
+      header: "ID antigua",
+      type: "text",
+      editable: true,
+      hidden: true,
+    },
+    {
+      id: "title",
+      header: "Título",
+      type: "text",
+      editable: true,
+      hidden: true,
+    },
+    {
+      id: "history",
+      header: "Historia",
+      type: "text",
+      editable: true,
+      hidden: true,
+    },
+    {
+      id: "information",
+      header: "Información",
+      type: "text",
+      editable: true,
+      hidden: true,
+    },
+    {
+      id: "peoples",
+      header: "Personas",
+      type: "text",
+      editable: true,
+      hidden: true,
+    },
+    { id: "tags", header: "Tags", type: "text", editable: true, hidden: true },
+    {
+      id: "streets",
+      header: "Calles",
+      type: "text",
+      editable: true,
+      hidden: true,
+    },
   ]);
+
+  const [showHiddenColumns, setShowHiddenColumns] = useState(false);
+  const [showExcelImport, setShowExcelImport] = useState(false);
+
+  // improve table performance
+  const visibleColumns = useMemo(() => {
+    return showHiddenColumns
+      ? columns
+      : columns.filter((column) => !column.hidden);
+  }, [columns, showHiddenColumns]);
+
+  // table scrolling
+  useEffect(() => {
+    const handleWheel = (e) => {
+      if (e.ctrlKey && tableRef.current) {
+        e.preventDefault();
+        const scrollAmount = e.deltaX !== 0 ? e.deltaX : e.deltaY;
+        tableRef.current.scrollLeft += scrollAmount * 1.5;
+      }
+    };
+
+    window.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      window.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
 
   const initialFiles = async () => {
     setIsLoading(true);
@@ -191,17 +324,33 @@ export default function Import() {
       setFiles((prevFiles) => {
         const processFile = (file) => ({
           id: file.inventoryCode,
-          name: file.newName,
+          name: file.inventoryCode,
           path: file.path,
           description: null,
           elements: null,
-          date: null,
+          object_annotations: null,
+          container_annotations: null,
+          year: null,
+          month: null,
+          day: null,
+          CA: null,
           ubicacion_id: "",
           communes_id: "",
           ubications_id: "",
           censored: false,
           censored_reason: null,
           published: false,
+          conservation_state: null,
+          author: null,
+          container_type: null,
+          container_number: null,
+          old_id: null,
+          title: null,
+          history: null,
+          information: null,
+          peoples: null,
+          tags: null,
+          streets: null,
           document:
             location.state?.collectionType === "documentos" ? true : false,
           csvContext: file.csvContext,
@@ -228,7 +377,7 @@ export default function Import() {
 
       setColumns((prevColumns) =>
         prevColumns.filter((col) => {
-          if (col.id === "date" && hasDateParts) return false;
+          if (col.type === "date" && hasDateParts) return false;
           return true;
         })
       );
@@ -265,81 +414,87 @@ export default function Import() {
   }, [location.state?.collectionPath, location.state?.dbCollectionId]);
 
   // Handle edit cell
-  const handleCellClick = (fileId, columnId, value) => {
-    if (editingCell?.fileId === fileId && editingCell?.columnId === columnId) {
-      return;
-    }
-
-    const column = columns.find((col) => col.id === columnId);
-    if (!column.editable) return;
-
-    if (column.dependsOn) {
-      const file = files.find((f) => f.id === fileId);
-      if (!file) return;
-      if (!file.censored) {
-        showStatusMessage(
-          "error",
-          "Activa 'Censurado' para habilitar la edición de la razón"
-        );
+  const handleCellClick = useCallback(
+    (fileId, columnId, value) => {
+      if (
+        editingCell?.fileId === fileId &&
+        editingCell?.columnId === columnId
+      ) {
         return;
       }
-    }
 
-    if (column.type === "boolean") {
-      setEditingCell(null);
-      const updatedFiles = files.map((file) => {
-        if (file.id === fileId) {
-          const newValue = !file[columnId];
+      const column = columns.find((col) => col.id === columnId);
+      if (!column.editable) return;
 
-          if (columnId === "censored") {
-            return {
-              ...file,
-              censored: newValue,
-              censored_reason: newValue ? file.censored_reason : "",
-              published: newValue ? false : file.published,
-            };
-          }
-
-          if (columnId === "published") {
-            return {
-              ...file,
-              published: newValue,
-              censored: newValue ? false : file.censored,
-              censored_reason: newValue ? "" : file.censored_reason,
-            };
-          }
-
-          return { ...file, [columnId]: newValue };
+      if (column.dependsOn) {
+        const file = files.find((f) => f.id === fileId);
+        if (!file) return;
+        if (!file.censored) {
+          showStatusMessage(
+            "error",
+            "Activa 'Censurado' para habilitar la edición de la razón"
+          );
+          return;
         }
-        return file;
-      });
-      setFiles(updatedFiles);
-      return;
-    }
-
-    setEditingCell({ fileId, columnId });
-    if (column.type === "select") {
-      setCurrentSearchType(column.id);
-      const option = foreignTablesData[column.id]?.find(
-        (opt) => opt.value === value
-      );
-      setEditValues((prev) => ({
-        ...prev,
-        [columnId]: option?.display || "",
-      }));
-    } else {
-      setEditValues((prev) => ({
-        ...prev,
-        [columnId]: value,
-      }));
-    }
-
-    setTimeout(() => {
-      if (editInputRef.current) {
-        editInputRef.current.focus();
       }
-    }, 0);
-  };
+
+      if (column.type === "boolean") {
+        setEditingCell(null);
+        const updatedFiles = files.map((file) => {
+          if (file.id === fileId) {
+            const newValue = !file[columnId];
+
+            if (columnId === "censored") {
+              return {
+                ...file,
+                censored: newValue,
+                censored_reason: newValue ? file.censored_reason : "",
+                published: newValue ? false : file.published,
+              };
+            }
+
+            if (columnId === "published") {
+              return {
+                ...file,
+                published: newValue,
+                censored: newValue ? false : file.censored,
+                censored_reason: newValue ? "" : file.censored_reason,
+              };
+            }
+
+            return { ...file, [columnId]: newValue };
+          }
+          return file;
+        });
+        setFiles(updatedFiles);
+        return;
+      }
+
+      setEditingCell({ fileId, columnId });
+      if (column.type === "select") {
+        setCurrentSearchType(column.id);
+        const option = foreignTablesData[column.id]?.find(
+          (opt) => opt.value === value
+        );
+        setEditValues((prev) => ({
+          ...prev,
+          [columnId]: option?.display || "",
+        }));
+      } else {
+        setEditValues((prev) => ({
+          ...prev,
+          [columnId]: value,
+        }));
+      }
+
+      setTimeout(() => {
+        if (editInputRef.current) {
+          editInputRef.current.focus();
+        }
+      }, 0);
+    },
+    [editingCell, columns, files, foreignTablesData, showStatusMessage]
+  );
 
   const handleEditChange = (e) => {
     const { columnId } = editingCell;
@@ -355,7 +510,42 @@ export default function Import() {
     const { fileId, columnId } = editingCell;
     const column = columns.find((col) => col.id === columnId);
     let value = editValues[columnId];
-    if (value) value = value.trim();
+
+    if (value && typeof value === "string") {
+      value = value.trim();
+    }
+
+    if (columnId === "day" || columnId === "month" || columnId === "year") {
+      const numericValue = value === "" ? NaN : Number(value);
+      let isValid = false;
+
+      switch (columnId) {
+        case "day":
+          isValid = numericValue >= 1 && numericValue <= 31;
+          break;
+        case "month":
+          isValid = numericValue >= 1 && numericValue <= 12;
+          break;
+        case "year":
+          isValid = numericValue >= 1000 && numericValue <= 2100;
+          break;
+      }
+
+      if (!isValid && value !== "") {
+        const updatedFiles = files.map((file) =>
+          file.id === fileId
+            ? {
+                ...file,
+                [columnId]: null,
+              }
+            : file
+        );
+        setFiles(updatedFiles);
+        setEditingCell(null);
+        setEditValues({});
+        return;
+      }
+    }
 
     const updatedFiles = files.map((file) => {
       if (file.id === fileId) {
@@ -394,247 +584,245 @@ export default function Import() {
     setFilteredOptions(filtered);
   };
 
-  const renderCellContent = (file, column) => {
-    const { id: columnId, type } = column;
-    const value = file[columnId];
+  const renderCellContent = useCallback(
+    (file, column) => {
+      const { id: columnId, type } = column;
+      const value = file[columnId];
 
-    if (
-      editingCell &&
-      editingCell.fileId === file.id &&
-      editingCell.columnId === columnId
-    ) {
+      if (
+        editingCell &&
+        editingCell.fileId === file.id &&
+        editingCell.columnId === columnId
+      ) {
+        switch (column.type) {
+          case "chips":
+            return (
+              <Chips
+                value={
+                  Array.isArray(file.elements)
+                    ? file.elements
+                    : typeof file.elements === "string"
+                    ? file.elements.split(",").map((el) => el.trim())
+                    : []
+                }
+                onChange={(e) => {
+                  const updatedFiles = files.map((f) =>
+                    f.id === file.id
+                      ? {
+                          ...f,
+                          elements: e.value.join(","),
+                        }
+                      : f
+                  );
+                  setFiles(updatedFiles);
+                }}
+                onBlur={() => setEditingCell(null)}
+                separator=","
+                removable
+                autoFocus
+              />
+            );
+
+          case "select":
+            return (
+              <AutoComplete
+                ref={autoCompleteRef}
+                value={editValues[columnId]}
+                suggestions={filteredOptions}
+                completeMethod={searchOptions}
+                field="display"
+                dropdown
+                forceSelection
+                placeholder="Seleccionar"
+                className="cellEditSelect"
+                onChange={(e) =>
+                  setEditValues((prev) => ({
+                    ...prev,
+                    [columnId]:
+                      typeof e.value === "string"
+                        ? e.value
+                        : e.value?.display || "",
+                  }))
+                }
+                onSelect={(e) => {
+                  setEditValues((prev) => ({
+                    ...prev,
+                    [columnId]: e.value.display,
+                  }));
+                  const updatedFiles = files.map((f) =>
+                    f.id === file.id ? { ...f, [columnId]: e.value.value } : f
+                  );
+                  setFiles(updatedFiles);
+                }}
+                onFocus={() => {
+                  setTimeout(() => {
+                    const input = autoCompleteRef.current
+                      ?.getElement()
+                      ?.querySelector("input");
+                    if (input) {
+                      input.select();
+                    }
+                  }, 0);
+                }}
+                itemTemplate={(option) => <div>{option.display}</div>}
+              />
+            );
+
+          default:
+            return (
+              <input
+                ref={editInputRef}
+                type={type === "number" || type === "date" ? "number" : "text"}
+                value={editValues[columnId] ?? ""}
+                onChange={handleEditChange}
+                onBlur={handleEditComplete}
+                onKeyDown={handleEditKeyDown}
+                className="cellEditInput"
+              />
+            );
+        }
+      }
+
       switch (column.type) {
         case "date":
+          const numericValue = parseInt(value);
+
+          if (!numericValue) {
+            return <FaEdit className="inputCellIcon" />;
+          }
+
+          let displayValue;
+          switch (columnId) {
+            case "day":
+              if (numericValue >= 1 && numericValue <= 31) {
+                displayValue = numericValue.toString().padStart(2, "0");
+              } else {
+                displayValue = "Inválido";
+              }
+              break;
+
+            case "month":
+              if (numericValue >= 1 && numericValue <= 12) {
+                displayValue = numericValue.toString().padStart(2, "0");
+              } else {
+                displayValue = "Inválido";
+              }
+              break;
+
+            case "year":
+              if (numericValue >= 1000 && numericValue <= 2100) {
+                displayValue = numericValue.toString();
+              } else {
+                displayValue = "Inválido";
+              }
+              break;
+          }
+
           return (
-            <DateCell
-              file={file}
-              onChange={(dateData) => {
-                const updatedFiles = files.map((f) =>
-                  f.id === file.id
-                    ? {
-                        ...f,
-                        ...dateData,
-                      }
-                    : f
-                );
-                setFiles(updatedFiles);
-              }}
-              onComplete={() => setEditingCell(null)}
-            />
+            <div className="visibleCellControl inputCell">
+              <div className="inputCellValue">{displayValue}</div>
+            </div>
           );
 
         case "chips":
-          return (
-            <Chips
-              value={
-                Array.isArray(file.elements)
-                  ? file.elements
-                  : typeof file.elements === "string"
-                  ? file.elements.split(",").map((el) => el.trim())
-                  : []
-              }
-              onChange={(e) => {
-                const updatedFiles = files.map((f) =>
-                  f.id === file.id
-                    ? {
-                        ...f,
-                        elements: e.value.join(","),
-                      }
-                    : f
-                );
-                setFiles(updatedFiles);
-              }}
-              onBlur={() => setEditingCell(null)}
-              separator=","
-              removable
-              autoFocus
-            />
-          );
+          const chipValues = Array.isArray(file.elements)
+            ? file.elements
+            : typeof file.elements === "string"
+            ? file.elements.split(",").filter(Boolean)
+            : [];
 
-        case "select":
-          return (
-            <AutoComplete
-              ref={autoCompleteRef}
-              value={editValues[columnId]}
-              suggestions={filteredOptions}
-              completeMethod={searchOptions}
-              field="display"
-              dropdown
-              forceSelection
-              placeholder="Seleccionar"
-              className="cellEditSelect"
-              onChange={(e) =>
-                setEditValues((prev) => ({
-                  ...prev,
-                  [columnId]:
-                    typeof e.value === "string"
-                      ? e.value
-                      : e.value?.display || "",
-                }))
-              }
-              onSelect={(e) => {
-                setEditValues((prev) => ({
-                  ...prev,
-                  [columnId]: e.value.display,
-                }));
-                const updatedFiles = files.map((f) =>
-                  f.id === file.id ? { ...f, [columnId]: e.value.value } : f
-                );
-                setFiles(updatedFiles);
-              }}
-              onFocus={() => {
-                setTimeout(() => {
-                  const input = autoCompleteRef.current
-                    ?.getElement()
-                    ?.querySelector("input");
-                  if (input) {
-                    input.select();
-                  }
-                }, 0);
-              }}
-              itemTemplate={(option) => <div>{option.display}</div>}
-            />
-          );
-
-        default:
-          return (
-            <input
-              ref={editInputRef}
-              type={type === "number" ? "number" : "text"}
-              value={editValues[columnId] ?? ""}
-              onChange={handleEditChange}
-              onBlur={handleEditComplete}
-              onKeyDown={handleEditKeyDown}
-              className="cellEditInput"
-            />
-          );
-      }
-    }
-
-    switch (column.type) {
-      case "date":
-        const { date, datePrecision } = file;
-        let formattedDate;
-
-        if (!date) {
-          return <FaEdit className="inputCellIcon" />;
-        }
-
-        try {
-          const dateObj = new Date(date);
-          switch (datePrecision) {
-            case "year":
-              formattedDate = dateObj.getFullYear();
-              break;
-            case "month":
-              formattedDate = dateObj.toLocaleDateString("es-ES", {
-                month: "long",
-                year: "numeric",
-              });
-              break;
-            case "full":
-            default:
-              formattedDate = dateObj.toLocaleDateString("es-ES", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-              });
+          if (chipValues.length === 0) {
+            return (
+              <div className="visibleCellControl inputCell">
+                <div className="inputCellValue">
+                  <FaEdit className="inputCellIcon" />
+                </div>
+              </div>
+            );
           }
-        } catch (e) {
-          formattedDate = "Fecha inválida";
-        }
 
-        return (
-          <div className="visibleCellControl inputCell">
-            <div className="inputCellValue">{formattedDate}</div>
-          </div>
-        );
-
-      case "chips":
-        const chipValues = Array.isArray(file.elements)
-          ? file.elements
-          : typeof file.elements === "string"
-          ? file.elements.split(",").filter(Boolean)
-          : [];
-
-        if (chipValues.length === 0) {
           return (
             <div className="visibleCellControl inputCell">
-              <div className="inputCellValue">
-                <FaEdit className="inputCellIcon" />
+              <div className="inputCellValue chips-preview">
+                {chipValues.map((chip, index) => (
+                  <div key={index} className="chip-item">
+                    {chip}
+                    <span
+                      className="remove-chip"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const updated = chipValues.filter(
+                          (_, i) => i !== index
+                        );
+                        const updatedFiles = files.map((f) =>
+                          f.id === file.id
+                            ? { ...f, elements: updated.join(",") }
+                            : f
+                        );
+                        setFiles(updatedFiles);
+                      }}
+                    >
+                      <FaTimes />
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           );
-        }
 
-        return (
-          <div className="visibleCellControl inputCell">
-            <div className="inputCellValue chips-preview">
-              {chipValues.map((chip, index) => (
-                <div key={index} className="chip-item">
-                  {chip}
-                  <span
-                    className="remove-chip"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const updated = chipValues.filter((_, i) => i !== index);
-                      const updatedFiles = files.map((f) =>
-                        f.id === file.id
-                          ? { ...f, elements: updated.join(",") }
-                          : f
-                      );
-                      setFiles(updatedFiles);
-                    }}
-                  >
-                    <FaTimes />
-                  </span>
-                </div>
-              ))}
+        case "boolean":
+          return (
+            <div className="booleanCell">
+              <div
+                className={`booleanIcon ${value ? "active" : ""}`}
+                onClick={() => handleCellClick(file.id, columnId, value)}
+                data-icon="check"
+              >
+                <FaCheck />
+              </div>
+
+              <div
+                className={`booleanIcon ${!value ? "active" : ""}`}
+                onClick={() => handleCellClick(file.id, columnId, value)}
+                data-icon="times"
+              >
+                <FaTimes />
+              </div>
             </div>
-          </div>
-        );
+          );
 
-      case "boolean":
-        return (
-          <div className="booleanCell">
-            <div
-              className={`booleanIcon ${value ? "active" : ""}`}
-              onClick={() => handleCellClick(file.id, columnId, value)}
-              data-icon="check"
-            >
-              <FaCheck />
-            </div>
-
-            <div
-              className={`booleanIcon ${!value ? "active" : ""}`}
-              onClick={() => handleCellClick(file.id, columnId, value)}
-              data-icon="times"
-            >
-              <FaTimes />
-            </div>
-          </div>
-        );
-
-      default:
-        const displayOption =
-          column.options?.find((opt) => opt.value === value) || null;
-        return (
-          <div className="visibleCellControl inputCell">
-            <div className="inputCellValue">
-              {value ? (
-                column.type === "select" ? (
-                  displayOption?.display
+        default:
+          const displayOption =
+            column.options?.find((opt) => opt.value === value) || null;
+          return (
+            <div className="visibleCellControl inputCell">
+              <div className="inputCellValue">
+                {value ? (
+                  column.type === "select" ? (
+                    displayOption?.display
+                  ) : (
+                    value
+                  )
                 ) : (
-                  value
-                )
-              ) : (
-                <FaEdit className="inputCellIcon" />
-              )}
+                  <FaEdit className="inputCellIcon" />
+                )}
+              </div>
             </div>
-          </div>
-        );
-    }
-  };
+          );
+      }
+    },
+    [
+      editingCell,
+      editValues,
+      files,
+      filteredOptions,
+      handleCellClick,
+      handleEditChange,
+      handleEditComplete,
+      handleEditKeyDown,
+      searchOptions,
+    ]
+  );
 
   // Sorting
   const requestSort = (key) => {
@@ -818,15 +1006,7 @@ export default function Import() {
 
         columns.forEach((column) => {
           if (column.editable) {
-            if (column.type === "date") {
-              newFile.datePrecision = sourceRow.datePrecision;
-              newFile.date = sourceRow.date;
-              newFile.year = sourceRow.year;
-              newFile.month = sourceRow.month;
-              newFile.day = sourceRow.day;
-            } else {
-              newFile[column.id] = sourceRow[column.id];
-            }
+            newFile[column.id] = sourceRow[column.id];
           }
         });
         return newFile;
@@ -847,15 +1027,7 @@ export default function Import() {
 
         columns.forEach((column) => {
           if (column.editable) {
-            if (column.type === "date") {
-              newFile.datePrecision = sourceRow.datePrecision;
-              newFile.date = sourceRow.date;
-              newFile.year = sourceRow.year;
-              newFile.month = sourceRow.month;
-              newFile.day = sourceRow.day;
-            } else {
-              newFile[column.id] = sourceRow[column.id];
-            }
+            newFile[column.id] = sourceRow[column.id];
           }
         });
         return newFile;
@@ -924,27 +1096,6 @@ export default function Import() {
   };
 
   const transformFileForDatabase = (file) => {
-    let year = null;
-    let month = null;
-    let day = null;
-
-    switch (file.datePrecision) {
-      case "year":
-        year = file.year || null;
-        break;
-
-      case "month":
-        year = file.year || null;
-        month = file.month || null;
-        break;
-
-      case "full":
-        year = file.year || null;
-        month = file.month || null;
-        day = file.day || null;
-        break;
-    }
-
     const now = new Date();
     const nowYear = now.getFullYear();
     const nowMonth = String(now.getMonth() + 1).padStart(2, "0");
@@ -1025,18 +1176,19 @@ export default function Import() {
       n_ic: file.id.split("_")[2],
       collection_id: location.state?.dbCollectionId,
       path: file.path,
-      container_annotations: null,
-      object_annotations: null,
-      title: null,
+      container_annotations: file.container_annotations || null,
+      object_annotations: file.object_annotations || null,
+      title: file.title || null,
       description: file.description || null,
-      history: null,
-      information: null,
-      peoples: null,
+      history: file.history || null,
+      information: file.information || null,
+      peoples: file.peoples || null,
       elements: file.elements || null,
-      streets: "desconocido,desconocido",
-      year: year,
-      month: month,
-      day: day,
+      streets: file.streets || "desconocido,desconocido",
+      year: file.year || null,
+      month: file.month || null,
+      day: file.day || null,
+      CA: file.CA || null,
       censored: file.censored ? 1 : 0,
       censored_reason: file.censored_reason || null,
       published: file.published ? 1 : 0,
@@ -1049,6 +1201,12 @@ export default function Import() {
       types_id: fileType,
       locations_id: 3,
       ubications_id: file.ubications_id || 360,
+      conservation_state: file.conservation_state || "bueno",
+      author: file.author || "Desconocido",
+      container_type: file.container_type || 1,
+      container_number: file.container_number || 1,
+      old_id: file.old_id || "Desconocido",
+      tags: file.tags || null,
       created_at: `${nowYear}-${nowMonth}-${nowDay} ${hours}:${minutes}:${seconds}`,
       updated_at: `${nowYear}-${nowMonth}-${nowDay} ${hours}:${minutes}:${seconds}`,
       document: file.document,
@@ -1056,6 +1214,37 @@ export default function Import() {
     };
 
     return valuesToSend;
+  };
+
+  // function to copy inventory codes
+  const copyInventoryCodes = () => {
+    const inventoryCodes = sortedData.map((file) => file.name).filter(Boolean);
+
+    const codesText = inventoryCodes.join("\n");
+
+    navigator.clipboard
+      .writeText(codesText)
+      .catch((err) => console.error("Error al copiar: ", err));
+  };
+  const inventoryCodes = sortedData.map((file) => file.name).filter(Boolean);
+
+  // Excel data update function
+  const handleExcelDataUpdate = (updates) => {
+    const updatedFiles = [...files];
+
+    updates.forEach((update) => {
+      const fileIndex = updatedFiles.findIndex(
+        (f) => f.name === update.inventoryCode
+      );
+      if (fileIndex !== -1) {
+        updatedFiles[fileIndex] = {
+          ...updatedFiles[fileIndex],
+          ...update.updates,
+        };
+      }
+    });
+
+    setFiles(updatedFiles);
   };
 
   const findCSVDataForFile = (file, csvDatasets) => {
@@ -1253,10 +1442,16 @@ export default function Import() {
                       </button>
                     )}
                   </div>
-                  <button type="button" className="actionButton">
-                    <FaSearch />
-                    <span>Buscar</span>
+
+                  <button
+                    type="button"
+                    className="actionButton"
+                    onClick={() => setShowExcelImport(true)}
+                  >
+                    <FaFileExcel />
+                    <span>Procesar excel</span>
                   </button>
+
                   <button
                     type="button"
                     className="actionButton"
@@ -1265,6 +1460,15 @@ export default function Import() {
                     <FaFileImport />
                     <span>Importar</span>
                   </button>
+
+                  <ExcelImport
+                    visible={showExcelImport}
+                    onHide={() => setShowExcelImport(false)}
+                    inventoryCodes={inventoryCodes}
+                    onDataProcessed={(result) => {
+                      handleExcelDataUpdate(result.updates);
+                    }}
+                  />
 
                   <ImportConfirmation
                     visible={modalVisible}
@@ -1278,15 +1482,36 @@ export default function Import() {
               <div className="tableControls">
                 <div className="tableInfo">
                   <span>{sortedData.length} archivos encontrados</span>
+
                   <span style={{ margin: "0 0.5rem" }}>|</span>
+
                   <span>
                     Importando a la colección {location.state?.dbCollectionId}
                   </span>
+
                   {selectedRows.length > 0 && (
                     <span className="selectedInfo">
                       {selectedRows.length} seleccionados
                     </span>
                   )}
+
+                  <span style={{ margin: "0 0.5rem" }}>|</span>
+
+                  <div className="toggleGroup">
+                    <label className="toggleLabel">
+                      <input
+                        type="checkbox"
+                        checked={showHiddenColumns}
+                        onChange={(e) => setShowHiddenColumns(e.target.checked)}
+                        className="toggleInput"
+                      />
+                      <span className="toggleSlider"></span>
+                    </label>
+
+                    <span className="toggleText">
+                      Mostrar columnas adicionales
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1307,7 +1532,7 @@ export default function Import() {
 
                       <th className="imageColumn">Imagen</th>
 
-                      {columns.map((column) => (
+                      {visibleColumns.map((column) => (
                         <th key={column.id} className="columnHeader">
                           <div className="columnHeaderContent">
                             <span
@@ -1315,6 +1540,7 @@ export default function Import() {
                               onClick={() => requestSort(column.id)}
                             >
                               {column.header}
+
                               {column.type === "boolean" ? (
                                 ""
                               ) : (
@@ -1323,6 +1549,17 @@ export default function Import() {
                                 />
                               )}
                             </span>
+
+                            {column.id === "name" && (
+                              <button
+                                className="copyInventoryButton"
+                                onClick={copyInventoryCodes}
+                                title="Copiar todos los códigos de inventario"
+                              >
+                                <FaCopy />
+                              </button>
+                            )}
+
                             {column.editable &&
                               !["text", "date", "chips"].includes(
                                 column.type
@@ -1342,6 +1579,7 @@ export default function Import() {
                       ))}
                     </tr>
                   </thead>
+
                   <tbody>
                     {sortedData.map((file) => (
                       <tr
@@ -1368,6 +1606,7 @@ export default function Import() {
                             >
                               <FaCopy />
                             </button>
+
                             {selectedRows.length > 0 && (
                               <button
                                 className="rowActionButton"
@@ -1384,7 +1623,7 @@ export default function Import() {
                           <ImagePreview file={file} />
                         </td>
 
-                        {columns.map((column) => {
+                        {visibleColumns.map((column) => {
                           const hasError = file.errorColumns?.includes(
                             column.id
                           );
@@ -1393,8 +1632,7 @@ export default function Import() {
                               key={`${file.id}-${column.id}`}
                               className={`dataCell ${
                                 column.editable ? "editableCell" : ""
-                              } ${hasError ? "cellError" : ""}
-                            `}
+                              } ${hasError ? "cellError" : ""}`}
                               onClick={() =>
                                 handleCellClick(
                                   file.id,
@@ -1411,7 +1649,6 @@ export default function Import() {
                     ))}
                   </tbody>
                 </table>
-                <TableScrollbar tableRef={tableRef} />
               </div>
             </div>
           </div>

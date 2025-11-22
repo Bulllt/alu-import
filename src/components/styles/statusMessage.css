@@ -5,7 +5,7 @@
   padding: 1rem;
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+  z-index: 99999;
   animation: slideIn 0.3s ease-out;
   max-width: 400px;
 }

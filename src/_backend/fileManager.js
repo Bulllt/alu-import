@@ -1,9 +1,8 @@
 const fs = require("fs-extra");
 const path = require("path");
 const { net } = require("electron");
-require("dotenv").config({
-  path: path.join(process.resourcesPath, ".env"),
-});
+require("dotenv").config();
+
 const crypto = require("crypto");
 const S3Manager = require("./s3Manager");
 const variablesConfig = require("./variablesConfig");

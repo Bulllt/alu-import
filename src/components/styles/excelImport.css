@@ -1,0 +1,207 @@
+.dialogOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  padding: 1rem;
+}
+
+.excelImportDialog {
+  background: var(--primary-color);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow-hover);
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dialogHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dialogHeader h2 {
+  color: var(--text-color);
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: var(--transition);
+}
+
+.closeButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dialogContent {
+  padding: 1.5rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.instructions {
+  margin-bottom: 1.5rem;
+}
+
+.instructions p {
+  color: var(--text-color);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.fileDropZone {
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.fileDropZone:hover,
+.fileDropZone.dragActive {
+  border-color: var(--accent-color);
+  background: rgba(50, 203, 146, 0.1);
+}
+
+.dropZoneContent {
+  color: var(--text-color);
+}
+
+.fileIcon {
+  font-size: 3rem;
+  color: var(--accent-color);
+  margin-bottom: 1rem;
+}
+
+.dropZoneContent h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.dropZoneContent p {
+  margin: 0 0 0.5rem 0;
+  opacity: 0.8;
+}
+
+.fileTypes {
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+.fileSelected {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.fileInfo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.fileInfo .fileIcon {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.fileDetails {
+  flex: 1;
+}
+
+.fileDetails h4 {
+  margin: 0 0 0.25rem 0;
+  color: var(--text-color);
+}
+
+.fileDetails span {
+  color: var(--accent-color);
+  font-size: 0.9rem;
+}
+
+.clearFile {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: var(--transition);
+}
+
+.clearFile:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.fileActions {
+  display: flex;
+  justify-content: center;
+}
+
+.processButton {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: var(--transition);
+}
+
+.processButton:hover:not(:disabled) {
+  background: #28a078;
+  transform: translateY(-1px);
+}
+
+.processButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dialogFooter {
+  padding: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cancelButton {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-color);
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition);
+  gap: 0.5rem;
+}
+
+.cancelButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

@@ -11,6 +11,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   saveFolderPath: (path) => ipcRenderer.invoke("save-folder-path", path),
   getFolderPath: () => ipcRenderer.invoke("get-folder-path"),
 
+  // Excel file selection
+  openFileDialog: () => ipcRenderer.invoke("open-file-dialog"),
+  readFileAsBuffer: (filePath) =>
+    ipcRenderer.invoke("read-file-as-buffer", filePath),
+  processExcelFileBuffer: (fileBuffer, inventoryCodes) =>
+    ipcRenderer.invoke("process-excel-file-buffer", fileBuffer, inventoryCodes),
+
   // Collection
   scanCollections: (folderPath) =>
     ipcRenderer.invoke("scan-collections", folderPath),

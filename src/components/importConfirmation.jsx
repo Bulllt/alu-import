@@ -67,25 +67,8 @@ export default function ImportConfirmation({
 
   const fieldMappings = {
     collection_id: "Colección",
-    container_annotations: "container_annotations",
-    object_annotations: "object_annotations",
-    title: "Título",
-    description: "Descripción",
-    history: "Historia",
-    information: "Información",
-    peoples: "Personas",
-    elements: "Elementos",
-    streets: "Calles",
     censored: "Censurado",
-    censored_reason: "Razón de censura",
     published: "Publicado",
-    ubicacion_id: "Ubicación objeto",
-    techniques_id: "Técnica",
-    sizes_id: "Tamaño",
-    communes_id: "Comuna",
-    types_id: "Tipo",
-    locations_id: "Localización",
-    ubications_id: "Ubicación",
   };
 
   const excludedKeys = new Set([
@@ -99,6 +82,17 @@ export default function ImportConfirmation({
     "path",
     "created_at",
     "updated_at",
+    "container_type",
+    "author",
+    "old_id",
+    "container_number",
+    "conservation_state",
+    "streets",
+    "techniques_id",
+    "sizes_id",
+    "communes_id",
+    "types_id",
+    "locations_id",
   ]);
 
   const formatFieldValue = (key, value) => {
