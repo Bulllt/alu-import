@@ -388,20 +388,15 @@ class WorkerManager {
       const [prefix, isInventoryNumber] = documentFolder.split("_");
       const isInCollectionRoot = documentPath === collectionPath;
 
-      // Check if this is a multi-page document folder
       if (/^\d+$/.test(isInventoryNumber) && !isInCollectionRoot) {
-        // Multi-page document - group by folder
         if (!folderMap.has(documentPath)) {
           folderMap.set(documentPath, file);
         }
-        // Ignore other files from the same folder
       } else {
-        // Single-page document - process individually
         singleFiles.push(file);
       }
     }
 
-    // Combine: one file per multi-page folder + all single files
     const deduplicatedFiles = [...folderMap.values(), ...singleFiles];
 
     return deduplicatedFiles;
