@@ -73,16 +73,21 @@ class FileManager {
   async createWatcher(rootFolderPath) {
     try {
       this.pendingCollections = [];
+      const validFileTypes = ["imagenes", "documentos", "peliculas", "audios"];
+      const codeFolderRegex = /^[a-zA-Z0-9]{1,4}$/;
+      let validCollectionsFound = false;
 
       const fileTypes = await fs.readdir(rootFolderPath);
       for (const fileType of fileTypes) {
         const fileTypePath = path.join(rootFolderPath, fileType);
         if (!(await fs.stat(fileTypePath)).isDirectory()) continue;
+        if (!validFileTypes.includes(fileType.toLowerCase())) continue;
 
         const codeFolders = await fs.readdir(fileTypePath);
         for (const codeFolder of codeFolders) {
           const codePath = path.join(fileTypePath, codeFolder);
           if (!(await fs.stat(codePath)).isDirectory()) continue;
+          if (!codeFolderRegex.test(codeFolder)) continue;
 
           const collectionFolders = await fs.readdir(codePath);
           for (const collectionFolder of collectionFolders) {
@@ -93,9 +98,18 @@ class FileManager {
                 code: codeFolder,
                 name: collectionFolder,
               });
+              validCollectionsFound = true;
             }
           }
         }
+      }
+
+      if (!validCollectionsFound) {
+        this.sendStatusToRenderer(
+          "error",
+          "No se encontraron colecciones válidas en la carpeta seleccionada. Revisar estructura"
+        );
+        return false;
       }
 
       return true;
