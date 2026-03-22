@@ -51,7 +51,7 @@ class FileManager {
     this.baseDir = path.dirname(config.folderPath);
     this.lastImported = path.join(
       this.baseDir,
-      `${path.basename(config.folderPath)}_importados`
+      `${path.basename(config.folderPath)}_importados`,
     );
     fs.ensureDirSync(this.lastImported);
 
@@ -107,7 +107,7 @@ class FileManager {
       if (!validCollectionsFound) {
         this.sendStatusToRenderer(
           "error",
-          "No se encontraron colecciones válidas en la carpeta seleccionada. Revisar estructura"
+          "No se encontraron colecciones válidas en la carpeta seleccionada. Revisar estructura",
         );
         return false;
       }
@@ -116,7 +116,7 @@ class FileManager {
     } catch (error) {
       this.sendStatusToRenderer(
         "error",
-        `Error al encontrar colecciones ${error.message}`
+        `Error al encontrar colecciones ${error.message}`,
       );
       console.error("Error creating watcher:", error);
       return false;
@@ -134,7 +134,7 @@ class FileManager {
 
       let rootCSVData = null;
       const rootCSVFile = items.find(
-        (item) => path.extname(item).toLowerCase() === ".csv"
+        (item) => path.extname(item).toLowerCase() === ".csv",
       );
       if (rootCSVFile) {
         const csvPath = path.join(collectionPath, rootCSVFile);
@@ -152,7 +152,7 @@ class FileManager {
       const sortedItems = items
         .filter((item) => path.extname(item).toLowerCase() !== ".csv")
         .sort((a, b) =>
-          a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+          a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),
         );
 
       for (const item of sortedItems) {
@@ -182,7 +182,7 @@ class FileManager {
     } catch (error) {
       this.sendStatusToRenderer(
         "error",
-        "Error al procesar (startCollectionProcessing)"
+        "Error al procesar (startCollectionProcessing)",
       );
       throw error;
     }
@@ -289,7 +289,7 @@ class FileManager {
 
       let folderCSVData = parentCSVData;
       const folderCSVFile = files.find(
-        (item) => path.extname(item).toLowerCase() === ".csv"
+        (item) => path.extname(item).toLowerCase() === ".csv",
       );
       if (folderCSVFile) {
         const csvName = path.basename(folderCSVFile);
@@ -345,7 +345,7 @@ class FileManager {
 
       this.sendStatusToRenderer(
         "success",
-        `Se proceso la carpeta ${folderName}`
+        `Se proceso la carpeta ${folderName}`,
       );
 
       return processedFiles;
@@ -393,7 +393,7 @@ class FileManager {
 
         if (item.parentFolder) {
           const folderItem = directories.find(
-            (dir) => dir.currentName === item.parentFolder
+            (dir) => dir.currentName === item.parentFolder,
           );
           const originalFolderName =
             folderItem?.originalName || item.parentFolder;
@@ -401,12 +401,12 @@ class FileManager {
           currentPath = path.join(
             collectionPath,
             item.parentFolder,
-            item.currentName
+            item.currentName,
           );
           originalPath = path.join(
             collectionPath,
             originalFolderName,
-            item.originalName
+            item.originalName,
           );
 
           await fs.mkdir(path.dirname(originalPath), {
@@ -438,7 +438,7 @@ class FileManager {
       } catch (error) {
         console.error(
           `Rollback failed for directory ${item.currentName}:`,
-          error
+          error,
         );
       }
     }
@@ -460,7 +460,7 @@ class FileManager {
       path.join(destinationFolder, collectionFolderName),
       {
         overwrite: true,
-      }
+      },
     );
   }
 
@@ -540,7 +540,7 @@ class FileManager {
           console.error("cleanLastImport error:", error);
           await this.sendStatusToRenderer(
             "error",
-            `El archivo ${file} está abierto. Ciérralo para evitar errores.`
+            `El archivo ${file} está abierto. Ciérralo para evitar errores.`,
           );
           throw error;
         }
@@ -558,7 +558,7 @@ class FileManager {
           console.error("cleanLastImport error:", error);
           await this.sendStatusToRenderer(
             "error",
-            `El archivo ${file} está abierto. Ciérralo para evitar errores.`
+            `El archivo ${file} está abierto. Ciérralo para evitar errores.`,
           );
           throw error;
         }
@@ -577,7 +577,7 @@ class FileManager {
       console.error("cleanLastImport error:", error);
       await this.sendStatusToRenderer(
         "error",
-        `Cierra los archivos dentro de la carpeta ${collection} dentro de la carpeta de importados`
+        `Cierra los archivos dentro de la carpeta ${collection} dentro de la carpeta de importados`,
       );
       throw error;
     }

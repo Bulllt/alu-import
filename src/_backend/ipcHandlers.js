@@ -14,12 +14,12 @@ class IPCHandlers {
   constructor(mainWindow) {
     this.configPath = path.join(
       require("electron").app.getPath("userData"),
-      "config.json"
+      "config.json",
     );
 
     this.fileManager = new FileManager(
       this.sendStatusToRenderer.bind(this),
-      this.configPath
+      this.configPath,
     );
     this.workerManager = new WorkerManager(mainWindow, this.fileManager);
     this.mainWindow = mainWindow;
@@ -37,7 +37,7 @@ class IPCHandlers {
     // Config handlers
     ipcMain.handle(
       "open-folder-dialog",
-      this.handleOpenFolderDialog.bind(this)
+      this.handleOpenFolderDialog.bind(this),
     );
     ipcMain.handle("save-folder-path", this.handleSaveFolderPath.bind(this));
     ipcMain.handle("get-folder-path", this.handleGetFolderPath.bind(this));
@@ -46,18 +46,18 @@ class IPCHandlers {
     ipcMain.handle("open-file-dialog", this.handleOpenFileDialog.bind(this));
     ipcMain.handle(
       "read-file-as-buffer",
-      this.handleReadFileAsBuffer.bind(this)
+      this.handleReadFileAsBuffer.bind(this),
     );
     ipcMain.handle(
       "process-excel-file-buffer",
-      this.handleProcessExcelFileBuffer.bind(this)
+      this.handleProcessExcelFileBuffer.bind(this),
     );
 
     // Collection operations
     ipcMain.handle("scan-collections", this.handleScanCollections.bind(this));
     ipcMain.handle(
       "start-collection-processing",
-      this.handleStartCollectionProcessing.bind(this)
+      this.handleStartCollectionProcessing.bind(this),
     );
     ipcMain.handle("execute-rollback", this.handleExecuteRollback.bind(this));
 
@@ -65,11 +65,11 @@ class IPCHandlers {
     ipcMain.handle("open-image", this.handleOpenImage.bind(this));
     ipcMain.handle(
       "get-image-thumbnail",
-      this.handleGetImageThumbnail.bind(this)
+      this.handleGetImageThumbnail.bind(this),
     );
     ipcMain.handle(
       "import-processed-files",
-      this.handleImportProcessedFiles.bind(this)
+      this.handleImportProcessedFiles.bind(this),
     );
     ipcMain.handle("has-last-import", this.handleHasLastImport.bind(this));
     ipcMain.handle("import-rollback", this.handleImportRollback.bind(this));
@@ -78,7 +78,7 @@ class IPCHandlers {
     ipcMain.handle("fetch-collections", this.handleFetchCollections.bind(this));
     ipcMain.handle(
       "fetch-foreign-tables",
-      this.handleFetchForeignTables.bind(this)
+      this.handleFetchForeignTables.bind(this),
     );
   }
 
@@ -93,7 +93,7 @@ class IPCHandlers {
     } catch (error) {
       this.sendStatusToRenderer(
         "error",
-        "No se pudo abrir el selector de carpetas"
+        "No se pudo abrir el selector de carpetas",
       );
       console.error("Error opening folder dialog:", error);
       throw error;
@@ -111,7 +111,7 @@ class IPCHandlers {
     } catch (error) {
       this.sendStatusToRenderer(
         "error",
-        "No se pudo guardar la ruta de la carpeta"
+        "No se pudo guardar la ruta de la carpeta",
       );
       console.error("Error saving folder path:", error);
       return false;
@@ -124,7 +124,7 @@ class IPCHandlers {
     } catch (error) {
       this.sendStatusToRenderer(
         "error",
-        "No se pudo obtener la ruta de la carpeta"
+        "No se pudo obtener la ruta de la carpeta",
       );
       console.error("Error getting folder path:", error);
       return null;
@@ -138,7 +138,7 @@ class IPCHandlers {
     } catch (error) {
       this.sendStatusToRenderer(
         "error",
-        `Error escaneando colecciones: ${error.message}`
+        `Error escaneando colecciones: ${error.message}`,
       );
       return [];
     }
@@ -148,9 +148,8 @@ class IPCHandlers {
     try {
       const pathLength = collectionPath.split("\\").length;
       const codePrefix = collectionPath.split("\\")[pathLength - 2];
-      const lastInventoryNumber = await this.handleFetchLastInventoryNumber(
-        codePrefix
-      );
+      const lastInventoryNumber =
+        await this.handleFetchLastInventoryNumber(codePrefix);
 
       const currentConfig = this.readConfig();
       const updatedConfig = {
@@ -161,7 +160,7 @@ class IPCHandlers {
 
       const success = await this.fileManager.startCollectionProcessing(
         collectionPath,
-        codePrefix
+        codePrefix,
       );
 
       if (!success) {
@@ -203,7 +202,7 @@ class IPCHandlers {
     } catch (error) {
       this.sendStatusToRenderer(
         "error",
-        "No se pudo abrir el selector de archivos"
+        "No se pudo abrir el selector de archivos",
       );
       console.error("Error opening file dialog:", error);
       throw error;
@@ -234,7 +233,7 @@ class IPCHandlers {
       if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
         this.sendStatusToRenderer(
           "error",
-          "El archivo Excel no contiene hojas de cálculo."
+          "El archivo Excel no contiene hojas de cálculo.",
         );
         throw new Error("El archivo Excel no contiene hojas de cálculo.");
       }
@@ -245,10 +244,10 @@ class IPCHandlers {
       if (!worksheet) {
         this.sendStatusToRenderer(
           "error",
-          "La primera hoja del archivo Excel está vacía o corrupta."
+          "La primera hoja del archivo Excel está vacía o corrupta.",
         );
         throw new Error(
-          "La primera hoja del archivo Excel está vacía o corrupta."
+          "La primera hoja del archivo Excel está vacía o corrupta.",
         );
       }
 
@@ -258,7 +257,7 @@ class IPCHandlers {
       } catch (convertError) {
         this.sendStatusToRenderer(
           "error",
-          "Error al convertir los datos del Excel."
+          "Error al convertir los datos del Excel.",
         );
         throw new Error("Error al convertir los datos del Excel.");
       }
@@ -275,23 +274,23 @@ class IPCHandlers {
         if (!headerRow) {
           this.sendStatusToRenderer(
             "error",
-            "No se encontraron datos en el archivo Excel"
+            "No se encontraron datos en el archivo Excel",
           );
           throw new Error("No se encontraron datos en el archivo Excel");
         }
       }
 
       const inventoryColIndex = headerRow.findIndex((cell) =>
-        String(cell).toLowerCase().includes("inventario")
+        String(cell).toLowerCase().includes("inventario"),
       );
 
       if (inventoryColIndex === -1) {
         this.sendStatusToRenderer(
           "error",
-          "No se encontró la columna 'Inventario' en el archivo Excel"
+          "No se encontró la columna 'Inventario' en el archivo Excel",
         );
         throw new Error(
-          "No se encontró la columna 'Inventario' en el archivo Excel"
+          "No se encontró la columna 'Inventario' en el archivo Excel",
         );
       }
 
@@ -328,7 +327,7 @@ class IPCHandlers {
 
         const headerStr = String(header).toLowerCase().trim();
         const matchedColumn = validColumns.find((col) =>
-          headerStr.includes(col)
+          headerStr.includes(col),
         );
         if (matchedColumn && index !== inventoryColIndex) {
           columnMappings[index] = matchedColumn;
@@ -338,10 +337,10 @@ class IPCHandlers {
       if (Object.keys(columnMappings).length === 0) {
         this.sendStatusToRenderer(
           "error",
-          "No se encontraron columnas válidas en el archivo Excel"
+          "No se encontraron columnas válidas en el archivo Excel",
         );
         throw new Error(
-          "No se encontraron columnas válidas en el archivo Excel"
+          "No se encontraron columnas válidas en el archivo Excel",
         );
       }
 
@@ -363,7 +362,7 @@ class IPCHandlers {
           inventoryCodes.some(
             (code) =>
               String(code).trim().toLowerCase() ===
-              inventoryCodeStr.toLowerCase()
+              inventoryCodeStr.toLowerCase(),
           )
         ) {
           matchedCodes++;
@@ -406,7 +405,7 @@ class IPCHandlers {
       if (matchedCodes === 0) {
         this.sendStatusToRenderer(
           "error",
-          "No se encontraron códigos de inventario coincidentes"
+          "No se encontraron códigos de inventario coincidentes",
         );
         throw new Error("No se encontraron códigos de inventario coincidentes");
       }
@@ -422,7 +421,7 @@ class IPCHandlers {
       console.error("Error processing Excel file:", error);
       this.sendStatusToRenderer(
         "error",
-        `Error procesando archivo Excel: ${error.message}`
+        `Error procesando archivo Excel: ${error.message}`,
       );
       throw error;
     }
@@ -470,7 +469,7 @@ class IPCHandlers {
 
       await this.makeGETRequest(
         `/api/deleteLastImport/${config.lastImportCode}`,
-        token
+        token,
       );
 
       const updatedConfig = {
@@ -482,7 +481,7 @@ class IPCHandlers {
       this.writeConfig(updatedConfig);
       this.sendStatusToRenderer(
         "success",
-        "Se ha eliminado la última importación"
+        "Se ha eliminado la última importación",
       );
       return true;
     } catch (error) {
@@ -515,7 +514,7 @@ class IPCHandlers {
   handleFetchLastInventoryNumber(codePrefix) {
     return this.makeGETRequest(
       `/api/lastInventoryNumber/${codePrefix}`,
-      "null"
+      "null",
     );
   }
 

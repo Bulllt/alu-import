@@ -17,7 +17,7 @@ class variablesConfig {
           "src",
           "_backend",
           "workers",
-          "thumbnailWorker.js"
+          "thumbnailWorker.js",
         );
 
     this.imageWorkerPath = this.isProduction
@@ -29,7 +29,7 @@ class variablesConfig {
           "src",
           "_backend",
           "workers",
-          "imageWorker.js"
+          "imageWorker.js",
         );
 
     this.movieWorkerPath = this.isProduction
@@ -41,7 +41,7 @@ class variablesConfig {
           "src",
           "_backend",
           "workers",
-          "movieWorker.js"
+          "movieWorker.js",
         );
 
     this.ffmpegPath = this.isProduction
@@ -71,7 +71,7 @@ class variablesConfig {
           "src",
           "_backend",
           "workers",
-          "audioWorker.js"
+          "audioWorker.js",
         );
 
     this.documentWorkerPath = this.isProduction
@@ -83,7 +83,7 @@ class variablesConfig {
           "src",
           "_backend",
           "workers",
-          "documentWorker.js"
+          "documentWorker.js",
         );
 
     this.ffmpegPath = this.isProduction

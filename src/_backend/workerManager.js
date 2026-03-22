@@ -14,7 +14,7 @@ class WorkerManager {
     this.workerPool = [];
     this.maxWorkers = Math.max(
       2,
-      Math.floor(require("os").cpus().length * 0.7)
+      Math.floor(require("os").cpus().length * 0.7),
     );
 
     this.progressState = {
@@ -50,7 +50,7 @@ class WorkerManager {
       files,
       "imagenes",
       10,
-      50
+      50,
     );
 
     await this.fileManager.executeRollback(collectionPath);
@@ -60,7 +60,7 @@ class WorkerManager {
 
     const filesWithAI = await this.generateAIDescriptionsInParallel(
       processedFiles,
-      lastInventoryCode
+      lastInventoryCode,
     );
 
     this.updateProgress(90, "Actualizando base de datos...");
@@ -76,7 +76,7 @@ class WorkerManager {
     const [prefix, baseNumber] = lastInventoryCode.split("_");
 
     const importedFiles = await fs.readdir(
-      path.join(this.fileManager.nas2400, prefix)
+      path.join(this.fileManager.nas2400, prefix),
     );
 
     const filesMap = new Map();
@@ -108,7 +108,7 @@ class WorkerManager {
         aiResultsMap.set(fileName, result);
         this.updateProgress(
           70 + (aiResultsMap.size / imageFiles.length) * 20,
-          `Generando descripciones... (${aiResultsMap.size}/${imageFiles.length})`
+          `Generando descripciones... (${aiResultsMap.size}/${imageFiles.length})`,
         );
       });
     }
@@ -200,7 +200,7 @@ class WorkerManager {
       files,
       "peliculas",
       40,
-      50
+      50,
     );
 
     this.updateProgress(90, "Finalizando operaciones...");
@@ -224,7 +224,7 @@ class WorkerManager {
     const moviesPath = path.join(
       this.fileManager.lastImported,
       "peliculas",
-      codePrefix
+      codePrefix,
     );
     const destinationFolder = path.join(moviesPath, collectionFolderName);
 
@@ -238,7 +238,7 @@ class WorkerManager {
       processedFiles++;
       this.updateProgress(
         20 + (processedFiles / totalFiles) * 20,
-        `Convirtiendo archivos... (${processedFiles}/${totalFiles})`
+        `Convirtiendo archivos... (${processedFiles}/${totalFiles})`,
       );
 
       const inputPath = file.path;
@@ -249,7 +249,7 @@ class WorkerManager {
       const nasOriginalPath = path.join(
         this.fileManager.nasOriginal,
         codePrefix,
-        `${baseName}.mov`
+        `${baseName}.mov`,
       );
 
       if (ext !== ".mov") {
@@ -300,11 +300,11 @@ class WorkerManager {
       files,
       "audios",
       10,
-      60
+      60,
     );
 
     const successfulFiles = processedFiles.filter(
-      (f) => f.processed && f.s3Hash
+      (f) => f.processed && f.s3Hash,
     );
 
     this.updateProgress(80, "Finalizando operaciones de archivo...");
@@ -350,13 +350,13 @@ class WorkerManager {
 
     const deduplicatedFiles = this.deduplicateDocumentFiles(
       files,
-      collectionPath
+      collectionPath,
     );
     const processedFiles = await this.processFilesInParallel(
       deduplicatedFiles,
       "documentos",
       10,
-      70
+      70,
     );
 
     this.updateProgress(85, "Finalizando operaciones de archivo...");
@@ -441,7 +441,7 @@ class WorkerManager {
     files,
     fileType,
     progressStart = 10,
-    progressRange = 50
+    progressRange = 50,
   ) {
     const processedFiles = [];
     const pendingPromises = [];
@@ -464,7 +464,7 @@ class WorkerManager {
             (this.progressState.processedFiles /
               this.progressState.totalFiles) *
               progressRange,
-          `${progressMessage} (${this.progressState.processedFiles}/${this.progressState.totalFiles})`
+          `${progressMessage} (${this.progressState.processedFiles}/${this.progressState.totalFiles})`,
         );
       });
     }
@@ -497,7 +497,7 @@ class WorkerManager {
         worker.on("exit", (code) => {
           if (code !== 0) {
             console.warn(
-              `File processing worker stopped with exit code ${code}`
+              `File processing worker stopped with exit code ${code}`,
             );
           }
           this.removeWorkerFromPool(worker, this.workerPool);
