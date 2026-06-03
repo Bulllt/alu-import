@@ -44,7 +44,7 @@ export default function ImportConfirmation({
     if (hasYear && hasMonth && hasDay) {
       return `${String(day).padStart(2, "0")}/${String(month).padStart(
         2,
-        "0"
+        "0",
       )}/${year}`;
     } else if (hasYear && hasMonth) {
       return `${monthNames[month - 1]} de ${year}`;
@@ -69,6 +69,7 @@ export default function ImportConfirmation({
     collection_id: "Colección",
     censored: "Censurado",
     published: "Publicado",
+    description: "Descripción",
   };
 
   const excludedKeys = new Set([
